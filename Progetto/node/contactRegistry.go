@@ -24,7 +24,7 @@ func ContactRegistry(localAddr *net.TCPAddr, addr string) string {
 
 	defer conn.Close()
 
-	message := "hello registry\n"
+	message := "0#hello registry\n"
 
 	// Invio del messaggio al server
 	_, err = conn.Write([]byte(message))

@@ -15,7 +15,11 @@ def_RTT=500
 #num=-1 indica che si contattano tutti i nodi che si conosce
 num=0
 
-#indirizzo ip e porta del service discovery
+#tipologia di gossip scelta per la comunicazione dei nodi
+#gossipType=1 significa usare bimodal multicast
+#gossipType=2 significa usare blind counter rumor mongering
+gossipType=2
 
+#indirizzo ip e porta del service discovery
 sd_ip=127.0.0.1
 sd_port=8080

@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-//TODO gestire il caso per i primi 5 nodi che ricevono o lista vuota o semivuota
+//TODO gestire notifiche di fallimento
 
 type nodeInfo struct {
 	id   int
@@ -69,34 +69,56 @@ func handleConnection(conn net.Conn, wg *sync.WaitGroup) {
 		return
 	}
 
-	//TODO lettura di notifica fallimento
+	count := strings.Count(message, "#")
+	if count == 1 {
 
-	fmt.Printf("il registry ha ricevuto: %s", message)
+		count++
+		parts := strings.SplitN(message, "#", count)
 
-	//recupero indirizzo del nodo e numero porta
-	clientAddr := conn.RemoteAddr().String()
-	parts := strings.SplitN(clientAddr, ":", 2)
-	if len(parts) != 2 {
-		fmt.Println("formato della linea non valido:", clientAddr)
+		fmt.Printf("il registry ha ricevuto: %s", parts[1])
+
+		//recupero indirizzo del nodo e numero porta
+		clientAddr := conn.RemoteAddr().String()
+		parts = strings.SplitN(clientAddr, ":", 2)
+		if len(parts) != 2 {
+			fmt.Println("formato della linea non valido:", clientAddr)
+		}
+		address := strings.TrimSpace(parts[0])
+		port, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+		if err != nil {
+			fmt.Println("errore nella conversione:", err)
+			return
+		}
+
+		//aggiungo il nuovo nodo alla lista di nodi e aggiorno il messaggio di risposta
+		currMessage := addNode(address, port)
+
+		//rispondo al nodo che mi ha contattato con il messaggio di risposta attuale
+		_, err = conn.Write([]byte(currMessage))
+		if err != nil {
+			fmt.Println("errore invio risp:", err.Error())
+			return
+		}
+
+		fmt.Printf("tutto ok\n\n")
+	} else {
+		count++
+		//TODO lettura notifica di fallimento
+		//uso il messaggio ricevuto per ottenere id fallito
+
+		id := 2
+		mutex.Lock()
+
+		lenght := len(nodeList)
+		for i := 0; i < lenght; i++ {
+			if nodeList[i].id == id {
+				nodeList = append(nodeList[:i], nodeList[i+1:]...)
+				break
+			}
+		}
+
+		mutex.Unlock()
 	}
-	address := strings.TrimSpace(parts[0])
-	port, err := strconv.Atoi(strings.TrimSpace(parts[1]))
-	if err != nil {
-		fmt.Println("errore nella conversione:", err)
-		return
-	}
-
-	//aggiungo il nuovo nodo alla lista di nodi e aggiorno il messaggio di risposta
-	currMessage := addNode(address, port)
-
-	//rispondo al nodo che mi ha contattato con il messaggio di risposta attuale
-	_, err = conn.Write([]byte(currMessage))
-	if err != nil {
-		fmt.Println("errore invio risp:", err.Error())
-		return
-	}
-
-	fmt.Printf("tutto ok\n\n")
 }
 
 func addNode(addr string, port int) string {

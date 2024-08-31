@@ -110,6 +110,7 @@ func main() {
 	extractNodeList(list)
 
 	//se sono il primo a contattarlo, ritento il contatto fino a che un altro nodo si collega
+	//utilizzo un tot massimo di tentativi
 	for count := 0; count < 5; count++ {
 		if len(nodes) == 0 && count < 5 {
 			time.Sleep(5 * time.Second)
@@ -131,7 +132,6 @@ func main() {
 
 	time.Sleep(5 * time.Second)
 	for {
-		//TODO forse un ordinamento dei nodi della lista?
 		//TODO scelta dei nodi da contattare
 		//scelta dei nodi da contattare
 		actualLen := len(nodes)
@@ -210,32 +210,101 @@ func handleConnection(conn net.Conn) {
 		fmt.Println("handleConnection()--> errore lettura da client:", err.Error())
 		return
 	}
+
+	//TODO verifica il tipo di messaggio
 	fmt.Printf("handleConnection()--> message: %s\n", message)
-
-	//rispondo al nodo che mi ha contattato con il messaggio di risposta attuale
-	_, err = conn.Write([]byte("hello\n"))
-	if err != nil {
-		fmt.Println("handleConnection()--> errore invio risp:", err.Error())
+	count := strings.Count(message, "#") + 1
+	if count == 0 {
 		return
 	}
 
-	//recupero indirizzo del nodo e numero porta
-	clientAddr := conn.RemoteAddr().String()
-	parts := strings.SplitN(clientAddr, ":", 2)
-	if len(parts) != 2 {
-		fmt.Println("handleConnection()--> formato della linea non valido:", clientAddr)
+	parts := strings.SplitN(message, "#", count)
+	code := parts[0]
+
+	if code == "000" {
+
+		//GESTIONE SEMPLICE HEARTBEAT
+		//rispondo al nodo che mi ha contattato con il messaggio di risposta attuale
+		_, err = conn.Write([]byte("hello\n"))
+		if err != nil {
+			fmt.Println("handleConnection() 000 --> errore invio risp:", err.Error())
+			return
+		}
+
+		//recupero indirizzo del nodo
+		clientAddr := conn.RemoteAddr().String()
+		addrParts := strings.SplitN(clientAddr, ":", 2)
+		if len(addrParts) != 2 {
+			fmt.Println("handleConnection() 000 --> formato della linea non valido:", clientAddr)
+		}
+		address := strings.TrimSpace(addrParts[0])
+		//da clientAddr non ottengo il numero di porta poichè per invio messaggio uso una porta differente
+		//da quella registrata nel service registry
+
+		//recupero id e porta dal contenuto del messaggio
+		idSenderString := parts[1]
+		portSenderString := parts[2]
+		idParts := strings.SplitN(idSenderString, ":", 2)
+		portParts := strings.SplitN(portSenderString, ":", 2)
+		idSender := idParts[1]
+		portSender := portParts[1]
+
+		id, err := strconv.Atoi(idSender)
+		if err != nil {
+			log.Printf("handleConnection() 000 --> errore conversione id: %v", err.Error())
+		}
+
+		fmt.Printf("handleConnection() 000 --> id: %d address: %s:%s\n", id, address, portSender)
+
+		//controllo se il nodo è già presente nella lista
+		//in caso non lo fosse lo aggiungo alla lista
+		nodesMutex.Lock()
+		length := len(nodes)
+		check := false
+
+		for i := 0; i < length; i++ {
+			if nodes[i].id == id {
+				check = true
+				break
+			}
+		}
+		nodesMutex.Unlock()
+
+		if !check {
+			addNode(id, portSender, address)
+		}
+
+		fmt.Printf("handleConnection() 000 --> tutto ok\n\n")
+
+	} else if code == "111" {
+		//TODO gestione segnalazione
+
 	}
-	address := strings.TrimSpace(parts[0])
-	port, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+}
+
+// funzione che aggiunge un nuovo nodo alla lista in modo concorrente
+func addNode(id int, port string, address string) {
+
+	currNode := Node{}
+
+	currNode.id = id
+	currNode.state = 1
+	currNode.strAddr = address + ":" + port
+
+	remoteAddr, err := net.ResolveTCPAddr("tcp", currNode.strAddr)
 	if err != nil {
-		fmt.Println("handleConnection()--> errore nella conversione:", err)
-		return
+		currNode.addr = nil
+		log.Printf("addNode()---> errore ottenimento indirizzo di %s: %v", currNode.strAddr, err)
+	} else {
+		currNode.addr = remoteAddr
 	}
 
-	//TODO aggiunta del nodo alla lista se non lo conosco
-	fmt.Printf("handleConnection()--> address: %s:%d\n", address, port)
+	nodesMutex.Lock()
 
-	fmt.Printf("handleConnection()--> tutto ok\n\n")
+	nodes = append(nodes, currNode)
+
+	nodesMutex.Unlock()
+
 }
 
 // funzione che riceve il messaggio di risposta da il service registry, ottiene id del nodo attuale e
@@ -279,6 +348,8 @@ func extractNodeList(str string) {
 	}
 }
 
+// funzione che va a contattare i nodi della lista per vedere se sono attivi
+// sceglie i nodi e poi invoca sendHeartBeat()
 func contactNode(maxNumToContact int, isRand bool) {
 
 	var selectedNode []Node
@@ -319,6 +390,7 @@ func contactNode(maxNumToContact int, isRand bool) {
 	}
 }
 
+// funzione che va ad inviare heartbeat ad un nodo
 func sendHeartbeat(remoteAddr string, myId int, remoteId int) {
 
 	conn, err := net.Dial("tcp", remoteAddr)
@@ -328,11 +400,11 @@ func sendHeartbeat(remoteAddr string, myId int, remoteId int) {
 	}
 	defer conn.Close()
 
-	//conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(def_RTT)))
-	conn.SetReadDeadline(time.Now().Add(time.Second * 2))
+	conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(def_RTT)))
 
 	//info necessarie per il nodo contattato
-	message := "id:" + strconv.Itoa(myId) + "#port:" + strconv.Itoa(My_addr.Port) + "\n"
+	message := writeHeartBeatMessage(myId, My_addr.Port)
+
 	_, err = conn.Write([]byte(message))
 	if err != nil {
 		fmt.Println("sendHeartBeat()--> errore durante l'invio del messaggio:", err)
@@ -359,7 +431,9 @@ func sendHeartbeat(remoteAddr string, myId int, remoteId int) {
 
 			nodesMutex.Unlock()
 
-			//TODO gestire segnalazione ad altri nodi
+			signalSus(remoteId)
+
+			return
 		}
 	}
 
@@ -374,4 +448,16 @@ func sendHeartbeat(remoteAddr string, myId int, remoteId int) {
 	nodesMutex.Unlock()
 
 	fmt.Printf("sendHeartBeat()--> risposta dal nodo: %s\n", reply)
+}
+
+// funzione che segnala un sospettato
+func signalSus(id int) {
+	//TODO segnalazione con gossip dei sospettati
+	//TODO tenere conto di quale tipologia di gossip voglio usare
+}
+
+// funzione che scrive il messaggio di heartbeat
+func writeHeartBeatMessage(id int, port int) string {
+	message := "000#id:" + strconv.Itoa(id) + "#port:" + strconv.Itoa(port) + "\n"
+	return message
 }
