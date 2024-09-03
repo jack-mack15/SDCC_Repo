@@ -6,16 +6,24 @@ var stringa string
 
 func main() {
 
-	var lista1 []int
-	var lista2 []int
+	type myStruct struct {
+		a int
+		b string
+	}
 
-	lista1 = append(lista1, 1)
-	lista2 = lista1
+	var lista []myStruct
 
-	fmt.Println(len(lista1))
-	fmt.Println(len(lista2))
+	currStruct1 := myStruct{a: 1, b: "bho"}
+	currStruct2 := myStruct{a: 2, b: "ciao"}
+	currStruct3 := myStruct{a: 3, b: "dest"}
+	lista = append(lista, currStruct1, currStruct2, currStruct3)
+	fmt.Printf("len prima is: %d \n", len(lista))
 
-	lista1 = append(lista1, 2)
-	fmt.Println(len(lista1))
-	fmt.Println(len(lista2))
+	pointer := &lista[0]
+	fmt.Printf("a is: %d \n", pointer.a)
+
+	lista = append(lista[:1], lista[2:]...)
+	fmt.Printf("len dopo is: %d \n", len(lista))
+	fmt.Printf("a del pointer post delete is: %d \n", pointer.a)
+
 }

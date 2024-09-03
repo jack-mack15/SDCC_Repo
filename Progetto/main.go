@@ -10,7 +10,6 @@ import (
 	"math"
 	"math/rand"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,8 +24,9 @@ var p float64
 // id del nodo attuale
 var my_id int
 
-// numero di porta usata
-var My_addr *net.TCPAddr
+// indirizzo sotto forma di UDPAddr e TCPAddr
+var ownUDPAddress *net.UDPAddr
+var ownTCPAddress *net.TCPAddr
 
 // RTT default per nodi che non ho mai contattato
 var def_RTT int
@@ -42,8 +42,10 @@ var max_num int
 type Node struct {
 	//id del nodo assegnato dal service registry
 	id int
+	//indirizzo per identificare nodo, tipo puntatore a UDPAddr
+	UDPAddr *net.UDPAddr
 	//indirizzo per identificare nodo, tipo puntatore a TCPAddr
-	addr *net.TCPAddr
+	TCPAddr *net.TCPAddr
 	//indirizzo per identificare nodo, tipo string
 	strAddr string
 	//state indica lo stato in cui si trova il nodo: 0 non conosciuto, 1 attivo, 2 sospettato, -1 disattivo
@@ -58,7 +60,7 @@ type Node struct {
 // RTT = p*prec + (1-p)*curr
 func calculateRTT(node Node) (float64, error) {
 	//ottengo indirizzo ip
-	address := fmt.Sprintf("%s", node.addr)
+	address := fmt.Sprintf("%s", node.UDPAddr)
 
 	start := time.Now()
 	//creo connessione tcp
@@ -102,10 +104,11 @@ func main() {
 	}
 	myPort := listener.Addr().(*net.TCPAddr).Port
 	listener.Close()
-	My_addr = &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: myPort}
+	ownUDPAddress = &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: myPort}
+	ownTCPAddress = &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: myPort}
 
 	//contatto il registry
-	list := node.ContactRegistry(My_addr, sd_ip+":"+strconv.Itoa(sd_port))
+	list := node.ContactRegistry(ownTCPAddress, sd_ip+":"+strconv.Itoa(sd_port))
 	fmt.Println(len(list))
 	extractNodeList(list)
 
@@ -114,7 +117,7 @@ func main() {
 	for count := 0; count < 5; count++ {
 		if len(nodes) == 0 && count < 5 {
 			time.Sleep(5 * time.Second)
-			list = node.ContactRegistry(My_addr, sd_ip+":"+strconv.Itoa(sd_port))
+			list = node.ContactRegistry(ownTCPAddress, sd_ip+":"+strconv.Itoa(sd_port))
 			extractNodeList(list)
 		} else {
 			break
@@ -132,7 +135,6 @@ func main() {
 
 	time.Sleep(5 * time.Second)
 	for {
-		//TODO scelta dei nodi da contattare
 		//scelta dei nodi da contattare
 		actualLen := len(nodes)
 		nodeToContact := max_num
@@ -155,20 +157,12 @@ func main() {
 
 		//TODO scelta tra "blind counter rumor mongering" e "bimodal multicast"
 		//TODO contattare i nodi per calcolo distanza e vedere se sono vivi
-		//TODO tenere attiva una goroutine che gestisca gli heartbeat provenienti da altri nodi
-		//go sendHeartbeat("127.0.0.1:8080")
+		//TODO contattare i nodi tramite UDP e contattare il server tramite TCP
+		//TODO ad ogni lettura e scrittura aggiungere un timeout
 
-		// Avvia la goroutine per ricevere heartbeat
-		//go listenForHeartbeats("8080")
-
-		// Mantieni il programma in esecuzione
-		//select {}
-
-		//TODO cambiare da udp a tcp
-		//TODO gestire il caso io sia il primo nodo a contattare il service registry
+		//MEGA TODO aggiungere in tutte le porzioni di codice, gestioni di fallimenti dei nodi contattati
 
 		//THREAD PER LA RICEZIONE
-		//se qualche nodo mi contatta devo rispondere che sono attivo
 		//invece se ricevo un nodo su un sospetto, aggiorno la mia lista senza rispondere
 
 		/*LOOP
@@ -184,35 +178,33 @@ func main() {
 // funzione che smista le richieste di connessioni da parte di altri nodi
 func receiverHandler() {
 
-	listener, err := net.Listen("tcp", ":"+strconv.Itoa(My_addr.Port))
+	conn, err := net.ListenUDP("udp", ownUDPAddress)
 	if err != nil {
-		fmt.Println("receiverHandler()--> errore durante l'ascolto:", err.Error())
-		os.Exit(1)
+		fmt.Println("receiverHandler()--> errore creazione listener UDP:", err)
+		return
 	}
-	defer listener.Close()
+	defer conn.Close()
 
 	for {
-		conn, err := listener.Accept()
+		buffer := make([]byte, 128)
+
+		n, remoteUDPAddr, err := conn.ReadFromUDP(buffer)
 		if err != nil {
-			fmt.Println("receiverHandler()--> errore nella connessione:", err.Error())
+			fmt.Println("receiverHandler()--> errore lettura pacchetto:", err)
 			continue
 		}
-		go handleConnection(conn)
+
+		go handleUDPMessage(conn, remoteUDPAddr, buffer[:n])
 	}
 }
 
 // funzione che gestisce i messaggi ricevuti da altri nodi
-func handleConnection(conn net.Conn) {
-	defer conn.Close()
-
-	message, err := bufio.NewReader(conn).ReadString('\n')
-	if err != nil {
-		fmt.Println("handleConnection()--> errore lettura da client:", err.Error())
-		return
-	}
+func handleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []byte) {
 
 	//TODO verifica il tipo di messaggio
-	fmt.Printf("handleConnection()--> message: %s\n", message)
+	message := string(buffer)
+	fmt.Printf("handleUDPMessage()--> message: %s\n", message)
+
 	count := strings.Count(message, "#") + 1
 	if count == 0 {
 		return
@@ -225,36 +217,30 @@ func handleConnection(conn net.Conn) {
 
 		//GESTIONE SEMPLICE HEARTBEAT
 		//rispondo al nodo che mi ha contattato con il messaggio di risposta attuale
-		_, err = conn.Write([]byte("hello\n"))
+
+		_, err := conn.WriteToUDP([]byte("hello\n"), remoteUDPAddr)
 		if err != nil {
-			fmt.Println("handleConnection() 000 --> errore invio risp:", err.Error())
+			fmt.Println("handleUDPMessage()--> errore invio risposta:", err)
 			return
 		}
 
 		//recupero indirizzo del nodo
-		clientAddr := conn.RemoteAddr().String()
-		addrParts := strings.SplitN(clientAddr, ":", 2)
-		if len(addrParts) != 2 {
-			fmt.Println("handleConnection() 000 --> formato della linea non valido:", clientAddr)
-		}
-		address := strings.TrimSpace(addrParts[0])
-		//da clientAddr non ottengo il numero di porta poichè per invio messaggio uso una porta differente
-		//da quella registrata nel service registry
+		remoteAddr := remoteUDPAddr.IP.String()
 
 		//recupero id e porta dal contenuto del messaggio
 		idSenderString := parts[1]
 		portSenderString := parts[2]
 		idParts := strings.SplitN(idSenderString, ":", 2)
 		portParts := strings.SplitN(portSenderString, ":", 2)
-		idSender := idParts[1]
-		portSender := portParts[1]
+		remoteId := idParts[1]
+		remotePort := portParts[1]
 
-		id, err := strconv.Atoi(idSender)
+		id, err := strconv.Atoi(remoteId)
 		if err != nil {
-			log.Printf("handleConnection() 000 --> errore conversione id: %v", err.Error())
+			log.Printf("handleUDPMessage() 000 --> errore conversione id: %v", err.Error())
 		}
 
-		fmt.Printf("handleConnection() 000 --> id: %d address: %s:%s\n", id, address, portSender)
+		fmt.Printf("handleUDPMessage() 000 --> id: %d address: %s:%s\n", id, remoteAddr, remotePort)
 
 		//controllo se il nodo è già presente nella lista
 		//in caso non lo fosse lo aggiungo alla lista
@@ -271,10 +257,10 @@ func handleConnection(conn net.Conn) {
 		nodesMutex.Unlock()
 
 		if !check {
-			addNode(id, portSender, address)
+			addNode(id, remotePort, remoteAddr)
 		}
 
-		fmt.Printf("handleConnection() 000 --> tutto ok\n\n")
+		fmt.Printf("handleUDPMessage() 000 --> tutto ok\n\n")
 
 	} else if code == "111" {
 		//TODO gestione segnalazione
@@ -291,12 +277,14 @@ func addNode(id int, port string, address string) {
 	currNode.state = 1
 	currNode.strAddr = address + ":" + port
 
-	remoteAddr, err := net.ResolveTCPAddr("tcp", currNode.strAddr)
+	remoteUDPAddr, err := net.ResolveUDPAddr("udp", currNode.strAddr)
+	remoteTCPAddr, err := net.ResolveTCPAddr("tcp", currNode.strAddr)
 	if err != nil {
-		currNode.addr = nil
+		currNode.UDPAddr = nil
 		log.Printf("addNode()---> errore ottenimento indirizzo di %s: %v", currNode.strAddr, err)
 	} else {
-		currNode.addr = remoteAddr
+		currNode.UDPAddr = remoteUDPAddr
+		currNode.TCPAddr = remoteTCPAddr
 	}
 
 	nodesMutex.Lock()
@@ -323,11 +311,11 @@ func extractNodeList(str string) {
 	my_id, _ = strconv.Atoi(strings.TrimSpace(parts[0]))
 	for i := 1; i < count; i++ {
 
-		currStr := strings.TrimSpace(parts[i])
-		currPart := strings.Split(currStr, "/")
+		currNodeInfo := strings.TrimSpace(parts[i])
+		currNodeParts := strings.Split(currNodeInfo, "/")
 
 		currNode := Node{}
-		tempId, _ := strconv.Atoi(strings.TrimSpace(currPart[0]))
+		tempId, _ := strconv.Atoi(strings.TrimSpace(currNodeParts[0]))
 
 		//se il corrente id corrisponde al mio id, non aggiungo me stesso alla lista
 		if tempId == my_id {
@@ -335,12 +323,14 @@ func extractNodeList(str string) {
 		}
 		currNode.id = tempId
 
-		tempAddr := strings.TrimSpace(currPart[1])
-		tempPoint, err := net.ResolveTCPAddr("tcp", tempAddr)
+		tempAddr := strings.TrimSpace(currNodeParts[1])
+		tempTCPAddr, err := net.ResolveTCPAddr("tcp", tempAddr)
+		tempUDPAddr, err := net.ResolveUDPAddr("udp", tempAddr)
 		if err != nil {
-			log.Printf("Errore durante la risoluzione dell'indirizzo remoto %s: %v", tempAddr, err)
+			log.Printf("extractNodeList()---> errore risoluzione indirizzo remoto %s: %v", tempAddr, err)
 		}
-		currNode.addr = tempPoint
+		currNode.UDPAddr = tempUDPAddr
+		currNode.TCPAddr = tempTCPAddr
 		currNode.strAddr = tempAddr
 		currNode.state = 0
 
@@ -352,7 +342,7 @@ func extractNodeList(str string) {
 // sceglie i nodi e poi invoca sendHeartBeat()
 func contactNode(maxNumToContact int, isRand bool) {
 
-	var selectedNode []Node
+	var selectedNode []*Node
 
 	if isRand {
 		//contatto in modo randomico
@@ -368,7 +358,7 @@ func contactNode(maxNumToContact int, isRand bool) {
 			_, ok := elemToContact[random]
 			if !ok {
 				elemToContact[random] = true
-				selectedNode = append(selectedNode, nodes[random])
+				selectedNode = append(selectedNode, &nodes[random])
 				i++
 			} else {
 				continue
@@ -379,75 +369,103 @@ func contactNode(maxNumToContact int, isRand bool) {
 	} else {
 		//contatto tutti quelli che conosco
 		nodesMutex.Lock()
-		selectedNode = nodes
+		lenght := len(nodes)
+		for i := 0; i < lenght; i++ {
+			selectedNode = append(selectedNode, &nodes[i])
+		}
 		nodesMutex.Unlock()
 	}
 
 	//contatto i nodi
 	len := len(selectedNode)
+
+	var wg sync.WaitGroup
+
 	for i := 0; i < len; i++ {
-		go sendHeartbeat(selectedNode[i].strAddr, my_id, selectedNode[i].id)
+		wg.Add(1)
+		go sendHeartbeat(selectedNode[i], my_id, &wg)
 	}
+	wg.Wait()
 }
 
 // funzione che va ad inviare heartbeat ad un nodo
-func sendHeartbeat(remoteAddr string, myId int, remoteId int) {
+func sendHeartbeat(nodePointer *Node, myId int, wg *sync.WaitGroup) {
 
-	conn, err := net.Dial("tcp", remoteAddr)
-	if err != nil {
-		fmt.Println("sendHeartBeat()--> errore durante la connessione:", err)
+	defer wg.Done()
+
+	//TODO controllare che il nodo sia attivo e sistemare la comunicazione
+	if (*nodePointer).state == -1 {
 		return
-	}
-	defer conn.Close()
+	} else {
 
-	conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(def_RTT)))
-
-	//info necessarie per il nodo contattato
-	message := writeHeartBeatMessage(myId, My_addr.Port)
-
-	_, err = conn.Write([]byte(message))
-	if err != nil {
-		fmt.Println("sendHeartBeat()--> errore durante l'invio del messaggio:", err)
-		return
-	}
-
-	//risposta dal nodo contattato
-	reader := bufio.NewReader(conn)
-	reply, err := reader.ReadString('\n')
-
-	if err != nil {
-		var netErr net.Error
-		if errors.As(err, &netErr) && netErr.Timeout() {
-			fmt.Printf("sendHeartBeat()--> time_out scaduto, nodo sospetto id: %d\n", remoteId)
-
-			//cambio dello stato del nodo
-			nodesMutex.Lock()
-
-			for _, node := range nodes {
-				if node.id == remoteId {
-					node.state = 2
-				}
-			}
-
-			nodesMutex.Unlock()
-
-			signalSus(remoteId)
-
+		conn, err := net.DialUDP("udp", nil, nodePointer.UDPAddr)
+		if err != nil {
+			fmt.Println("sendHeartBeat()--> errore durante la connessione:", err)
 			return
 		}
-	}
+		defer conn.Close()
 
-	nodesMutex.Lock()
+		remoteId := (*nodePointer).id
 
-	for _, node := range nodes {
-		if node.id == remoteId {
-			node.state = 1
+		//TODO aggiungere il recupero del tempo di attesa
+		//info necessarie per il nodo contattato
+
+		startTime := time.Now()
+
+		message := writeHeartBeatMessage(myId, ownUDPAddress.Port)
+
+		timerErr := conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(def_RTT)))
+		if timerErr != nil {
+			return
 		}
+
+		_, err = conn.Write([]byte(message))
+		if err != nil {
+			fmt.Println("sendHeartBeat()--> errore durante l'invio del messaggio:", err)
+			return
+		}
+
+		//risposta dal nodo contattato
+		reader := bufio.NewReader(conn)
+		reply, err := reader.ReadString('\n')
+		responseTime := time.Since(startTime)
+
+		fmt.Printf("sendHeartBeat()--> responseTime: %v \n", responseTime)
+
+		if err != nil {
+			var netErr net.Error
+			if errors.As(err, &netErr) && netErr.Timeout() {
+				fmt.Printf("sendHeartBeat()--> time_out scaduto, nodo sospetto id: %d\n", remoteId)
+
+				//cambio dello stato del nodo
+				nodesMutex.Lock()
+
+				for _, node := range nodes {
+					if node.id == remoteId {
+						node.state = 2
+					}
+				}
+
+				nodesMutex.Unlock()
+
+				signalSus(remoteId)
+
+				return
+			}
+		}
+
+		nodesMutex.Lock()
+
+		for _, node := range nodes {
+			if node.id == remoteId {
+				node.state = 1
+			}
+		}
+
+		nodesMutex.Unlock()
+
+		fmt.Printf("sendHeartBeat()--> risposta dal nodo: %s\n", reply)
 	}
-
-	nodesMutex.Unlock()
-
-	fmt.Printf("sendHeartBeat()--> risposta dal nodo: %s\n", reply)
 }
 
 // funzione che segnala un sospettato

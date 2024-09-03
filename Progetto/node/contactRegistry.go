@@ -38,6 +38,7 @@ func ContactRegistry(localAddr *net.TCPAddr, addr string) string {
 		fmt.Println("erore ricezione risp:", err.Error())
 		return ""
 	}
+
 	fmt.Print("risposta server: ", reply)
 
 	return reply

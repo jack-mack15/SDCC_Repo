@@ -18,7 +18,7 @@ num=0
 #tipologia di gossip scelta per la comunicazione dei nodi
 #gossipType=1 significa usare bimodal multicast
 #gossipType=2 significa usare blind counter rumor mongering
-gossipType=2
+gossip_type=2
 
 #indirizzo ip e porta del service discovery
 sd_ip=127.0.0.1
