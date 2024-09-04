@@ -1,9 +1,9 @@
 #parametro che impatta la exponential moving average per l'aggiornamento della distanza dei nodi
-#p=0, il valore corrente resetta il valore precedente della distanza
-#p=1, il valore corrente non altera il valore della distanza del nodo
+#p=0.0, il valore corrente resetta il valore precedente della distanza
+#p=1.0, il valore corrente non altera il valore della distanza del nodo
 #p=0.5, media aritmetica tra valore precedente e corrente
 #valore compreso tra 0 e 1
-p=0.3
+p=0.0
 
 
 #RTT espresso in millisecondi di default per nodi di cui non si conosce la distanza

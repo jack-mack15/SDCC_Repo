@@ -6,10 +6,10 @@ func sendHeartbeat(nodePointer *Node, myId int, wg *sync.WaitGroup) {
 
 	defer wg.Done()
 
-	remoteAddr := (*nodePointer).strAddr
+	remoteAddr := (*nodePointer).StrAddr
 
 	//TODO controllare che il nodo sia attivo e sistemare la comunicazione
-	if (*nodePointer).state == -1 {
+	if (*nodePointer).State == -1 {
 		return
 	} else {
 		conn, err := net.Dial("tcp", remoteAddr)
@@ -19,9 +19,9 @@ func sendHeartbeat(nodePointer *Node, myId int, wg *sync.WaitGroup) {
 		}
 		defer conn.Close()
 
-		remoteId := (*nodePointer).id
+		remoteId := (*nodePointer).ID
 
-		conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(def_RTT)))
+		conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(defRTT)))
 
 		//info necessarie per il nodo contattato
 		message := writeHeartBeatMessage(myId, My_addr.Port)
@@ -39,14 +39,14 @@ func sendHeartbeat(nodePointer *Node, myId int, wg *sync.WaitGroup) {
 		if err != nil {
 			var netErr net.Error
 			if errors.As(err, &netErr) && netErr.Timeout() {
-				fmt.Printf("sendHeartBeat()--> time_out scaduto, nodo sospetto id: %d\n", remoteId)
+				fmt.Printf("sendHeartBeat()--> time_out scaduto, nodo sospetto ID: %d\n", remoteId)
 
 				//cambio dello stato del nodo
 				nodesMutex.Lock()
 
 				for _, node := range nodes {
-					if node.id == remoteId {
-						node.state = 2
+					if node.ID == remoteId {
+						node.State = 2
 					}
 				}
 
@@ -61,8 +61,8 @@ func sendHeartbeat(nodePointer *Node, myId int, wg *sync.WaitGroup) {
 		nodesMutex.Lock()
 
 		for _, node := range nodes {
-			if node.id == remoteId {
-				node.state = 1
+			if node.ID == remoteId {
+				node.State = 1
 			}
 		}
 
