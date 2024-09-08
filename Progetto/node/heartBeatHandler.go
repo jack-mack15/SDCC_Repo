@@ -57,7 +57,7 @@ func HandleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []by
 
 		gossipMessage := parts[1]
 		gossiper.HandleGossipMessage(gossipMessage)
-		fmt.Printf("AYOOOOOOO messaggio sus gestito")
+		fmt.Println("AYOOOOOOO messaggio sus gestito")
 
 	}
 
@@ -173,7 +173,7 @@ func SendHeartbeat(singleNode Node, myId int, wg *sync.WaitGroup) {
 					AddOfflineNode(singleNode.ID)
 				}
 
-				gossiper.Gossip(singleNode.ID)
+				go gossiper.Gossip(singleNode.ID)
 
 				return
 			}

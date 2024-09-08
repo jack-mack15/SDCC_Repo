@@ -140,6 +140,22 @@ func GetNodesMulticast() map[int]*net.UDPAddr {
 	return idMap
 }
 
+// funzione che restituisce la lista di tutti gli id dei nodi conosciuti
+func GetNodesId() []int {
+	var array []int
+
+	nodesMutex.Lock()
+
+	lenght := getLenght()
+	for i := 0; i < lenght; i++ {
+		array = append(array, nodesList[i].ID)
+	}
+
+	nodesMutex.Unlock()
+
+	return array
+}
+
 // funzione che aggiorna un nodo della lista, aggiorna stato, distanza e tempo di risposta
 func UpdateNode(id int, state int, responseTime int, distance int) {
 	nodesMutex.Lock()

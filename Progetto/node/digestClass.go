@@ -38,61 +38,26 @@ func GetDigest() string {
 }
 
 // funzione che riceve un digest di un altro nodo e lo confronta con il digest del nuovo attuale
-func CompareDigest(remoteDigest string) []int {
+// ritorna una lista di id di nodi fault di cui non ero a conoscenza
+func CompareDigest(remoteDigest string) {
+
 	ownArray := ExtractArrayFromDigest(digestToSend)
 	remoteArray := ExtractArrayFromDigest(remoteDigest)
 
-	//array che tiene conto di ciò che manca a me
-	var ownProblems []int
-	//array che tiene conto di ciò che manca al nodo che mi ha contattato
-	var remoteProblems []int
-
-	for {
-		if len(ownArray) == 0 || len(remoteArray) == 0 {
-			break
-		}
-		currOwnId := ownArray[0]
-		currRemoteId := remoteArray[0]
-
-		//currOwnId è presente in ownDigest ma non in remoteDigest
-		//lo aggiungo ai problemi di remote e lo tolgo da ownArray
-		if currOwnId < currRemoteId {
-			remoteProblems = append(remoteProblems, currOwnId)
-			ownArray = ownArray[1:]
-		}
-		//currRemoteId è presente in remoteDigest ma non in ownDigest
-		//lo aggiungo ai problemi di own e lo tolgo da remoteArray
-		if currOwnId > currRemoteId {
-			ownProblems = append(ownProblems, currRemoteId)
-			remoteArray = remoteArray[1:]
-		}
-		//currOwnId è presente in tutti e due i digest
-		//quindi rimuovo quel valore da tutti e due
-		if currOwnId == currRemoteId {
-			ownArray = ownArray[1:]
-			remoteArray = remoteArray[1:]
-		}
+	//condizione verificata se non conosco nessuno
+	if len(ownArray) == 0 {
+		UpdateDigest(remoteArray)
+		return
 	}
-	//se uno dei due array ha ancora elementi, significa che questi non sono presenti nell'altro
-	//caso in cui ownArray ha ancora elementi, li aggiungo a remoteProblems
-	if len(ownArray) > 0 {
-		for i := 0; i < len(ownArray); i++ {
-			remoteProblems = append(remoteProblems, ownArray[i])
-		}
-	}
-	//caso in cui remoteArray ha ancora elementi, li aggiungo a ownProblems
-	if len(remoteArray) > 0 {
-		for i := 0; i < len(remoteArray); i++ {
-			ownProblems = append(ownProblems, remoteArray[i])
+
+	for i := 0; i < len(remoteArray); i++ {
+		if !CheckPresenceNodeList(remoteArray[i]) {
+			AddOfflineNode(remoteArray[i])
+			UpdateFailureNode(remoteArray[i])
 		}
 	}
 
-	//se ho scoperto id che mancavano al mio digest, li aggiungo
-	if len(ownProblems) > 0 {
-		UpdateDigest(ownProblems)
-	}
-
-	return remoteProblems
+	return
 }
 
 // funzione che viene attivata da compareDigest se ci sono nodi falliti di cui non sono a conoscenza

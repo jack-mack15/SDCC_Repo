@@ -12,8 +12,6 @@ import (
 	"time"
 )
 
-var gossiper node.Gossiper
-
 func main() {
 
 	//SET UP del nodo
@@ -24,7 +22,7 @@ func main() {
 	}
 
 	//"istanzio" un gossiper in base al file di config
-	node.InitGossiper()
+	node.InitGossiper(node.GetMaxNeighbour(), node.GetMaxIter())
 
 	//ottengo un numero di porta da so e ottengo il mio indirizzo
 	listener, err2 := net.Listen("tcp", ":0")
@@ -76,7 +74,7 @@ func main() {
 		//TODO sistemare le approssimazioni e il calcolo della distanza e tempo di risposta
 		//TODO aggiungere il digest al heartbeat?
 		//TODO notificare anche il service registry dopo un fault, volendo comportamento settabile da impostazioni
-
+		//TODO aggiungere una funzione che gestisce il digest da aggiungere ad un normale heartbeat
 		//MEGA TODO aggiungere in tutte le porzioni di codice, gestioni di fallimenti dei nodi contattati
 
 	}
