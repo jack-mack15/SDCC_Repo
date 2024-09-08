@@ -30,6 +30,8 @@ type Node struct {
 
 var nodesList []Node
 
+var failedNodesList []Node
+
 var nodesMutex sync.Mutex
 
 // funzione che verifica se un nodo è presente. ritorna true se è presente, false altrimenti
@@ -99,7 +101,7 @@ func GetNodeToContact() []Node {
 		for i < howManyToContact {
 			random := rand.Intn(lenght)
 			_, ok := elemToContact[random]
-			if !ok {
+			if !ok && nodesList[random].State != 2 {
 				elemToContact[random] = true
 				selectedNode = append(selectedNode, nodesList[random])
 				i++
@@ -121,6 +123,21 @@ func GetNodeToContact() []Node {
 
 	return selectedNode
 
+}
+
+// funzione che restituisce tutti i nodi per eseguire il multicast
+func GetNodesMulticast() map[int]*net.UDPAddr {
+
+	idMap := make(map[int]*net.UDPAddr)
+
+	nodesMutex.Lock()
+	lenght := getLenght()
+	for i := 0; i < lenght; i++ {
+		idMap[nodesList[i].ID] = nodesList[i].UDPAddr
+	}
+	nodesMutex.Unlock()
+
+	return idMap
 }
 
 // funzione che aggiorna un nodo della lista, aggiorna stato, distanza e tempo di risposta
@@ -146,7 +163,11 @@ func UpdateFailureNode(id int) {
 
 	for i := 0; i < len(nodesList); i++ {
 		if nodesList[i].ID == id {
+
 			nodesList[i].State = 2
+			failedNodesList = append(failedNodesList, nodesList[i])
+			nodesList = append(nodesList[:i], nodesList[i+1:]...)
+
 			break
 		}
 	}
@@ -154,7 +175,7 @@ func UpdateFailureNode(id int) {
 	nodesMutex.Unlock()
 }
 
-// funzione che ritorna la lunghezza della lista di nodi
+// funzione che ritorna il numero di nodi attivi
 func getLenght() int {
 	return len(nodesList)
 }
@@ -162,8 +183,13 @@ func getLenght() int {
 func PrintAllNodeList() {
 	nodesMutex.Lock()
 
+	fmt.Println("nodi attivi")
 	for i := 0; i < len(nodesList); i++ {
-		fmt.Printf("nodo id: %d  stato: %d  distanza: %d \n\n", nodesList[i].ID, nodesList[i].State, nodesList[i].Distance)
+		fmt.Printf("nodo id: %d  stato: %d  distanza: %d \n", nodesList[i].ID, nodesList[i].State, nodesList[i].Distance)
+	}
+	fmt.Println("nodi falliti")
+	for i := 0; i < len(failedNodesList); i++ {
+		fmt.Printf("nodo id: %d  stato: %d  distanza: %d \n", failedNodesList[i].ID, failedNodesList[i].State, failedNodesList[i].Distance)
 	}
 
 	nodesMutex.Unlock()

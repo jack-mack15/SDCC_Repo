@@ -18,9 +18,6 @@ type nodeInfo struct {
 	port int
 }
 
-// da settare con file config
-var numGoroutines = 5
-
 var mutex sync.Mutex
 
 var nodeList []nodeInfo
@@ -35,32 +32,23 @@ func main() {
 	}
 	defer listener.Close()
 
-	var wg sync.WaitGroup
-	i := 0
 	for {
 
-		for i = 0; i < numGoroutines; i++ {
-
-			conn, err := listener.Accept()
-			if err != nil {
-				fmt.Println("errore nella connessione:", err.Error())
-				continue
-			}
-			wg.Add(1)
-			go handleConnection(conn, &wg)
+		conn, err := listener.Accept()
+		if err != nil {
+			fmt.Println("errore nella connessione:", err.Error())
+			continue
 		}
-		wg.Wait()
+		go handleConnection(conn)
 
 		fmt.Println(messageList)
 
-		i = 0
 	}
 
 }
 
-func handleConnection(conn net.Conn, wg *sync.WaitGroup) {
+func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	defer wg.Done()
 
 	//la lettura si può anche omettere
 	message, err := bufio.NewReader(conn).ReadString('\n')

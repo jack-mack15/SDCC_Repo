@@ -18,7 +18,16 @@ num=0
 #tipologia di gossip scelta per la comunicazione dei nodi
 #gossipType=1 significa usare bimodal multicast
 #gossipType=2 significa usare blind counter rumor mongering
-gossip_type=2
+gossip_type=1
+
+#parametro B del blind rumor mongering, indica il numero massimo di nodi vicini
+#a cui si inoltra un update. deve essere un intero positivo
+max_neighbour=2
+
+#parametro F del blind rumor mongering, indica quante volte un update viene inoltrato
+#ai nodi vicini. deve essere un intero positivo.
+#si B che F vengono opportunamente gestiti per evitare errori
+max_iter=2
 
 #indirizzo ip e porta del service discovery
 sd_ip=127.0.0.1

@@ -34,6 +34,12 @@ var maxNum int
 // variabile che indica che tipologia di gossip usare
 var gossipType int
 
+// massimo numero di vicini a cui il nodo corrente inoltra un update
+var b int
+
+// massimo numero di volte che un update verrà inoltrato
+var f int
+
 func ReadConfigFile() int {
 
 	cwd, err := os.Getwd()
@@ -106,6 +112,16 @@ func ReadConfigFile() int {
 		fmt.Println("ReadConfigFile()--> errore nella conversione gossipType:", err)
 		return 0
 	}
+	b, err = strconv.Atoi(data["max_neighbour"])
+	if err != nil {
+		fmt.Println("ReadConfigFile()--> errore nella conversione max neighbour:", err)
+		return 0
+	}
+	f, err = strconv.Atoi(data["max_iter"])
+	if err != nil {
+		fmt.Println("ReadConfigFile()--> errore nella conversione di max iter:", err)
+		return 0
+	}
 
 	check := checkParameters()
 
@@ -121,6 +137,18 @@ func checkParameters() bool {
 	//check gossiptype
 	if gossipType != 1 && gossipType != 2 {
 		fmt.Println("config file error: gossipType must be equal to 1 or 2")
+		return false
+	}
+
+	//check b
+	if b < 0 {
+		fmt.Println("config file error: max neighbour must be a positive int")
+		return false
+	}
+
+	//check b
+	if f < 0 {
+		fmt.Println("config file error: max iteration must be a positive int")
 		return false
 	}
 
@@ -209,4 +237,10 @@ func GetMyId() int {
 }
 func GetDefRTT() int {
 	return defRTT
+}
+func GetMaxNeighbour() int {
+	return b
+}
+func GetMaxIter() int {
+	return f
 }
