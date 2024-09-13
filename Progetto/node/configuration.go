@@ -17,6 +17,9 @@ var p float64
 // ID del nodo attuale
 var myId int
 
+// numero di porta su cui sono in ascolto
+var myPort int
+
 // indirizzo sotto forma di UDPAddr e TCPAddr
 var ownUDPAddress *net.UDPAddr
 var ownTCPAddress *net.TCPAddr
@@ -201,6 +204,12 @@ func checkParameters() bool {
 	return true
 }
 
+func SetMyPort(port int) {
+	myPort = port
+}
+func GetMyPort() int {
+	return myPort
+}
 func SetOwnUDPAddr(UDPAddr *net.UDPAddr) {
 	ownUDPAddress = UDPAddr
 }

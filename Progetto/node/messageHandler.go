@@ -30,7 +30,7 @@ func HandleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []by
 
 	code := parts[0]
 
-	if code == "000" {
+	if code == "000" || code == "111" {
 		//GESTIONE SEMPLICE HEARTBEAT
 		//TODO rimuovere questo blocco di codice che simula un ritardo
 		max := 201
@@ -53,12 +53,27 @@ func HandleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []by
 		//gestisco le info sul nodo mittente
 		handleNodeInfo(parts, remoteUDPAddr)
 
+		if code == "111" {
+
+			//Heatbeat con digest del multicast bimodal
+			id := getIdFromMessage(parts[1])
+
+			gossipMessage := parts[3]
+			go gossiper.HandleGossipMessage(id, gossipMessage)
+			fmt.Println("messaggio gossip ricevuto")
+		}
+
 	} else if code == "222" {
+		//codice 222 è associato al blind counter rumor mongering in caso il messaggio
+		//riporti anche info nodi fault
 
-		gossipMessage := parts[1]
-		gossiper.HandleGossipMessage(gossipMessage)
-		fmt.Println("AYOOOOOOO messaggio sus gestito")
+		id := getIdFromMessage(parts[1])
 
+		//gestisco le info sul nodo mittente se non lo conosco
+		handleNodeInfo(parts, remoteUDPAddr)
+
+		go gossiper.HandleGossipMessage(id, parts[3])
+		fmt.Println("messaggio gossip ricevuto")
 	}
 
 	//fmt.Printf("handleUDPMessage() 000 --> tutto ok\n\n")
@@ -68,50 +83,64 @@ func HandleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []by
 // nella lista di nodi conosciuti. In caso lo aggiunge
 func handleNodeInfo(parts []string, remoteUDPAddr *net.UDPAddr) {
 	//recupero id
-	idSenderString := parts[1]
-	idParts := strings.SplitN(idSenderString, ":", 2)
-	remoteId := idParts[1]
+	id := getIdFromMessage(parts[1])
 
-	//recupero porta di ascolto, quella con cui il sender invia i messaggi è differente dalla porta di ascolto
-	addressString := parts[2]
-	addressParts := strings.SplitN(addressString, ":", 2)
-	remoteIP := remoteUDPAddr.IP.String()
-	remotePort := addressParts[1]
+	if !CheckPresenceNodeList(id) {
+		//recupero porta di ascolto, quella con cui il sender invia i messaggi è differente dalla porta di ascolto
+		addressString := parts[2]
+		addressParts := strings.SplitN(addressString, ":", 2)
+		remoteIP := remoteUDPAddr.IP.String()
+		remotePort := addressParts[1]
 
-	//questo è l'address "corretto", quello corretto per contattare tale nodo
-	remoteAddrStr := remoteIP + ":" + remotePort
+		//questo è l'address "corretto", quello corretto per contattare tale nodo
+		remoteAddrStr := remoteIP + ":" + remotePort
 
-	id, err := strconv.Atoi(remoteId)
-	if err != nil {
-		log.Printf("handleNodeInfo() 000 --> errore conversione id: %v", err.Error())
+		portInt, err := strconv.Atoi(remotePort)
+		if err != nil {
+			log.Printf("handleNodeInfo() 000 --> errore conversione porta a int: %v", err.Error())
+		}
+		currTCPAddr := &net.TCPAddr{IP: net.ParseIP(remoteIP), Port: portInt}
+		currUDPAddr := &net.UDPAddr{IP: net.ParseIP(remoteIP), Port: portInt}
+		if err != nil {
+			log.Printf("handleNodeInfo() 000 ---> errore risoluzione indirizzo remoto %s: %v", remoteAddrStr, err)
+		}
+
+		//aggiungo il nodo. se fosse già presente AddActiveNode() non lo aggiunge
+		_ = AddActiveNode(id, remoteAddrStr, currUDPAddr, currTCPAddr)
 	}
-
-	portInt, err := strconv.Atoi(remotePort)
-	if err != nil {
-		log.Printf("handleNodeInfo() 000 --> errore conversione porta a int: %v", err.Error())
-	}
-	currTCPAddr := &net.TCPAddr{IP: net.ParseIP(remoteIP), Port: portInt}
-	currUDPAddr := &net.UDPAddr{IP: net.ParseIP(remoteIP), Port: portInt}
-	if err != nil {
-		log.Printf("handleNodeInfo() 000 ---> errore risoluzione indirizzo remoto %s: %v", remoteAddrStr, err)
-	}
-
-	//aggiungo il nodo. se fosse già presente AddActiveNode() non lo aggiunge
-	_ = AddActiveNode(id, remoteAddrStr, currUDPAddr, currTCPAddr)
 }
 
-// funzione che invia gli update appena si scopre un nodo fault
-func SendGossipSignal(message string, remoteUDPAddr *net.UDPAddr) {
+// funzione che invia gli update per il bimodal multicast gossip
+func SendMulticastMessage(message string, remoteUDPAddr *net.UDPAddr) {
 	conn, err := net.DialUDP("udp", nil, remoteUDPAddr)
 	if err != nil {
-		fmt.Println("sendGossipSignal()--> errore durante la connessione:", err)
+		fmt.Println("SendMulticastMessage()--> errore durante la connessione:", err)
 		return
 	}
 	defer conn.Close()
 
 	_, err = conn.Write([]byte(message))
 	if err != nil {
-		fmt.Println("sendGossipSignal()--> errore durante invio messaggio:", err)
+		fmt.Println("SendMulticastMessage()--> errore durante invio messaggio:", err)
+		return
+	}
+}
+
+// funzione che invia i messaggi per il blind counter rumor mongering
+func sendBlindCounterGossipMessage(toNotifyId int, faultId int) {
+	remoteAddr := getSelectedUDPAddress(toNotifyId)
+	message := writeBlindCounterGossipMessage(faultId)
+
+	conn, err := net.DialUDP("udp", nil, remoteAddr)
+	if err != nil {
+		fmt.Println("sendBlindCounterGossipMessage()--> errore durante la connessione:", err)
+		return
+	}
+	defer conn.Close()
+
+	_, err = conn.Write([]byte(message))
+	if err != nil {
+		fmt.Println("sendBlindCounterGossipMessage()--> errore durante invio messaggio:", err)
 		return
 	}
 }
@@ -165,14 +194,7 @@ func SendHeartbeat(singleNode Node, myId int, wg *sync.WaitGroup) {
 			if errors.As(err, &netErr) && netErr.Timeout() {
 				fmt.Printf("sendHeartBeat()--> time_out scaduto, nodo sospetto id: %d\n", singleNode.ID)
 
-				//cambio dello stato del nodo
-				UpdateFailureNode(singleNode.ID)
-
-				//aggiungo il nodo alla lista di nodi falliti se ancora non presente
-				if !CheckPresenceDigestList(singleNode.ID) {
-					AddOfflineNode(singleNode.ID)
-				}
-
+				//invoco il gossiper poichè ho scoperto un nodo fault
 				go gossiper.Gossip(singleNode.ID)
 
 				return
@@ -186,12 +208,39 @@ func SendHeartbeat(singleNode Node, myId int, wg *sync.WaitGroup) {
 	}
 }
 
+// funzione che estrae l'id del sender dal messaggio
+func getIdFromMessage(messagePart string) int {
+
+	idParts := strings.SplitN(messagePart, ":", 2)
+	idString := idParts[1]
+
+	id, err := strconv.Atoi(idString)
+	if err != nil {
+		log.Printf("getIdFromMessage() 000 --> errore conversione id: %v", err.Error())
+	}
+	return id
+}
+
 // funzione che scrive il messaggio di heartbeat
 func writeHeartBeatMessage(id int, port int) string {
 
 	message := "000#id:" + strconv.Itoa(id) + "#port:" + strconv.Itoa(port)
 	digest := GetDigest()
 	message = message + "#" + digest
+	return message
+}
+
+// funzione che scrive il messaggio per il bimodal multicast
+func writeMulticastGossipMessage(id int, port int, digest string) string {
+	message := "111#id:" + strconv.Itoa(id) + "#port:" + strconv.Itoa(port)
+	message = message + "#" + digest
+	return message
+}
+
+// funzione che scrive il messaggio per il blind counter rumor
+func writeBlindCounterGossipMessage(faultId int) string {
+	message := "222#id:" + strconv.Itoa(GetMyId()) + "#port:" + strconv.Itoa(GetMyPort())
+	message = message + "#" + strconv.Itoa(faultId)
 	return message
 }
 

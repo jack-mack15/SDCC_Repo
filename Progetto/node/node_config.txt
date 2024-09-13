@@ -18,7 +18,7 @@ num=0
 #tipologia di gossip scelta per la comunicazione dei nodi
 #gossipType=1 significa usare bimodal multicast
 #gossipType=2 significa usare blind counter rumor mongering
-gossip_type=1
+gossip_type=2
 
 #parametro B del blind rumor mongering, indica il numero massimo di nodi vicini
 #a cui si inoltra un update. deve essere un intero positivo

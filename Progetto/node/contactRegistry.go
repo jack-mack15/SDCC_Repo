@@ -39,7 +39,7 @@ func ContactRegistry(localAddr *net.TCPAddr, addr string) string {
 		return ""
 	}
 
-	fmt.Print("risposta server: \n\n", reply)
+	fmt.Printf("risposta server: %s\n\n", reply)
 
 	return reply
 }

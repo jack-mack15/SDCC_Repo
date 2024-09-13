@@ -37,27 +37,29 @@ func GetDigest() string {
 	return digestToSend
 }
 
-// funzione che riceve un digest di un altro nodo e lo confronta con il digest del nuovo attuale
+// funzione che riceve un digest di un altro nodo e lo confronta con il proprio digest
 // ritorna una lista di id di nodi fault di cui non ero a conoscenza
-func CompareDigest(remoteDigest string) {
+func CompareAndAddToDigest(remoteDigest string) []int {
 
 	ownArray := ExtractArrayFromDigest(digestToSend)
 	remoteArray := ExtractArrayFromDigest(remoteDigest)
 
+	var didntKnow []int
+
 	//condizione verificata se non conosco nessuno
 	if len(ownArray) == 0 {
 		UpdateDigest(remoteArray)
-		return
+		return didntKnow
 	}
 
 	for i := 0; i < len(remoteArray); i++ {
 		if !CheckPresenceNodeList(remoteArray[i]) {
+			didntKnow = append(didntKnow, remoteArray[i])
 			AddOfflineNode(remoteArray[i])
-			UpdateFailureNode(remoteArray[i])
 		}
 	}
 
-	return
+	return didntKnow
 }
 
 // funzione che viene attivata da compareDigest se ci sono nodi falliti di cui non sono a conoscenza
@@ -66,7 +68,7 @@ func UpdateDigest(idArray []int) {
 		if !CheckPresenceNodeList(idArray[i]) {
 			AddOfflineNode(idArray[i])
 		}
-		UpdateFailureNode(idArray[i])
+		UpdateNodeState(idArray[i])
 	}
 }
 

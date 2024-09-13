@@ -22,7 +22,7 @@ func main() {
 	}
 
 	//"istanzio" un gossiper in base al file di config
-	node.InitGossiper(node.GetMaxNeighbour(), node.GetMaxIter())
+	node.InitGossiper()
 
 	//ottengo un numero di porta da so e ottengo il mio indirizzo
 	listener, err2 := net.Listen("tcp", ":0")
@@ -31,6 +31,7 @@ func main() {
 	}
 	myPort := listener.Addr().(*net.TCPAddr).Port
 	listener.Close()
+	node.SetMyPort(myPort)
 	node.SetOwnUDPAddr(&net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: myPort})
 	node.SetOwnTCPAddr(&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: myPort})
 
@@ -58,7 +59,6 @@ func main() {
 
 	time.Sleep(5 * time.Second)
 
-	//TODO cambiare tutto, lasciar fare al nodeClass
 	for {
 		//scelgo i nodi da contattare
 		nodesToContact := node.GetNodeToContact()
@@ -68,14 +68,20 @@ func main() {
 		time.Sleep(5 * time.Second)
 		node.PrintAllNodeList()
 
+		//TODO multicast non elimina correttamente i nodi falliti, o li stampa male?
+
+		//TODO modificare il digest in modo tale che la stringa digest venga generata sul momento e non salvata ogni volta
+
 		//TODO in sendHeartBeat() nella deadline ci sta un "* 3" da modificare
-		//TODO scelta tra "blind counter rumor mongering" e "bimodal multicast"
+
 		//TODO ad ogni lettura e scrittura aggiungere un timeout
-		//TODO sistemare le approssimazioni e il calcolo della distanza e tempo di risposta
-		//TODO aggiungere il digest al heartbeat?
-		//TODO notificare anche il service registry dopo un fault, volendo comportamento settabile da impostazioni
-		//TODO aggiungere una funzione che gestisce il digest da aggiungere ad un normale heartbeat
 		//MEGA TODO aggiungere in tutte le porzioni di codice, gestioni di fallimenti dei nodi contattati
+
+		//TODO sistemare le approssimazioni e il calcolo della distanza e tempo di risposta
+
+		//TODO notificare anche il service registry dopo un fault, volendo comportamento settabile da impostazioni
+
+		//TODO aggiungere anche anti entropy: ovvero seleziono randomicamente un solo nodo e gli dico quello che so
 
 	}
 }

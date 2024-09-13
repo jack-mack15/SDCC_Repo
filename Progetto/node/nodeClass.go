@@ -34,6 +34,20 @@ var failedNodesList []Node
 
 var nodesMutex sync.Mutex
 
+// funzione che restituisce l'indirizzo UDP di un nodo della lista
+func getSelectedUDPAddress(id int) *net.UDPAddr {
+	nodesMutex.Lock()
+
+	for _, node := range nodesList {
+		if node.ID == id {
+			return node.UDPAddr
+		}
+	}
+	nodesMutex.Unlock()
+
+	return nil
+}
+
 // funzione che verifica se un nodo è presente. ritorna true se è presente, false altrimenti
 func CheckPresenceNodeList(id int) bool {
 	digestMutex.Lock()
@@ -173,14 +187,15 @@ func UpdateNode(id int, state int, responseTime int, distance int) {
 	nodesMutex.Unlock()
 }
 
-// funzione che segnala il nodo come fallito
-func UpdateFailureNode(id int) {
+// funzione che segnala il nodo come fallito e lo rimuove dalla lista
+func UpdateNodeState(id int) {
 	nodesMutex.Lock()
 
 	for i := 0; i < len(nodesList); i++ {
 		if nodesList[i].ID == id {
 
 			nodesList[i].State = 2
+			//rimuovo il nodo e lo aggiungo ai nodi falliti
 			failedNodesList = append(failedNodesList, nodesList[i])
 			nodesList = append(nodesList[:i], nodesList[i+1:]...)
 
