@@ -33,10 +33,7 @@ func HandleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []by
 	if code == "000" || code == "111" {
 		//GESTIONE SEMPLICE HEARTBEAT
 		//TODO rimuovere questo blocco di codice che simula un ritardo
-		max := 201
-		if myId == 3 {
-			max = 2001
-		}
+		max := 200
 		randomNumber := rand.Intn(max) + 100
 		time.Sleep(time.Duration(randomNumber) * time.Millisecond)
 		if randomNumber > 300 {
@@ -73,7 +70,7 @@ func HandleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []by
 		handleNodeInfo(parts, remoteUDPAddr)
 
 		go gossiper.HandleGossipMessage(id, parts[3])
-		fmt.Println("messaggio gossip ricevuto")
+
 	}
 
 	//fmt.Printf("handleUDPMessage() 000 --> tutto ok\n\n")
@@ -85,7 +82,14 @@ func handleNodeInfo(parts []string, remoteUDPAddr *net.UDPAddr) {
 	//recupero id
 	id := getIdFromMessage(parts[1])
 
-	if !CheckPresenceNodeList(id) {
+	if !CheckPresenceActiveNodesList(id) {
+
+		//se il nodo era fault e si è riattivato, lo elimino dalla lista dei nodi fault
+		if CheckPresenceFaultNodesList(id) {
+			gossiper.ReviveNode(id)
+			reviveFaultNode(id)
+		}
+
 		//recupero porta di ascolto, quella con cui il sender invia i messaggi è differente dalla porta di ascolto
 		addressString := parts[2]
 		addressParts := strings.SplitN(addressString, ":", 2)
@@ -106,7 +110,7 @@ func handleNodeInfo(parts []string, remoteUDPAddr *net.UDPAddr) {
 		}
 
 		//aggiungo il nodo. se fosse già presente AddActiveNode() non lo aggiunge
-		_ = AddActiveNode(id, remoteAddrStr, currUDPAddr, currTCPAddr)
+		_ = AddActiveNode(id, 1, remoteAddrStr, currUDPAddr, currTCPAddr)
 	}
 }
 
@@ -206,6 +210,25 @@ func SendHeartbeat(singleNode Node, myId int, wg *sync.WaitGroup) {
 
 		//fmt.Printf("sendHeartBeat()--> risposta dal nodo: %s\n", reply)
 	}
+}
+
+// funzione di ausilio che mi trasforma il contenuto di un messaggio di gossip da stringa a array di interi
+func extractIdArrayFromMessage(digest string) []int {
+	var array []int
+
+	if digest == "" {
+		return array
+	}
+
+	count := strings.Count(digest, "/") + 1
+	arrayElems := strings.SplitN(digest, "/", count)
+
+	for i := 0; i < count; i++ {
+		currId, _ := strconv.Atoi(arrayElems[i])
+		array = append(array, currId)
+	}
+
+	return array
 }
 
 // funzione che estrae l'id del sender dal messaggio

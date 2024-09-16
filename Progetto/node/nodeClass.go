@@ -30,55 +30,73 @@ type Node struct {
 
 var nodesList []Node
 
-var failedNodesList []Node
+var faultNodesList []Node
 
-var nodesMutex sync.Mutex
+var activeNodesMutex sync.Mutex
+
+var faultNodesMutex sync.Mutex
 
 // funzione che restituisce l'indirizzo UDP di un nodo della lista
 func getSelectedUDPAddress(id int) *net.UDPAddr {
-	nodesMutex.Lock()
+	activeNodesMutex.Lock()
 
 	for _, node := range nodesList {
 		if node.ID == id {
+			activeNodesMutex.Unlock()
 			return node.UDPAddr
 		}
 	}
-	nodesMutex.Unlock()
+	activeNodesMutex.Unlock()
 
 	return nil
 }
 
 // funzione che verifica se un nodo è presente. ritorna true se è presente, false altrimenti
-func CheckPresenceNodeList(id int) bool {
-	digestMutex.Lock()
+func CheckPresenceActiveNodesList(id int) bool {
+	activeNodesMutex.Lock()
 
 	for i := 0; i < len(nodesList); i++ {
 		if nodesList[i].ID == id {
-			digestMutex.Unlock()
+			activeNodesMutex.Unlock()
 			return true
 		}
 	}
 
-	digestMutex.Unlock()
+	activeNodesMutex.Unlock()
+	return false
+}
+
+// funzione che verifica se un nodo è presente nella lista dei nodi fault. ritorna true se è presente
+func CheckPresenceFaultNodesList(id int) bool {
+	faultNodesMutex.Lock()
+
+	for i := 0; i < len(faultNodesList); i++ {
+		if faultNodesList[i].ID == id {
+			faultNodesMutex.Unlock()
+			return true
+		}
+	}
+
+	faultNodesMutex.Unlock()
 	return false
 }
 
 // funzione che aggiunge un nodo alla lista. ritorna true se il nodo è stato aggiunto, false altrimenti
-func AddActiveNode(id int, strAddr string, UDPAddr *net.UDPAddr, TCPAddr *net.TCPAddr) bool {
-	if !CheckPresenceNodeList(id) {
+func AddActiveNode(id int, state int, strAddr string, UDPAddr *net.UDPAddr, TCPAddr *net.TCPAddr) bool {
+	if !CheckPresenceActiveNodesList(id) {
 
 		currNode := Node{}
 		currNode.ID = id
 		currNode.StrAddr = strAddr
 		currNode.UDPAddr = UDPAddr
 		currNode.TCPAddr = TCPAddr
-		currNode.State = 0
+		currNode.State = state
 		currNode.Distance = -1
 		currNode.ResponseTime = -1
 
-		nodesMutex.Lock()
+		activeNodesMutex.Lock()
 		nodesList = append(nodesList, currNode)
-		nodesMutex.Unlock()
+		activeNodesMutex.Unlock()
 		return true
 	}
 	return false
@@ -108,7 +126,7 @@ func GetNodeToContact() []Node {
 		//contatto in modo randomico
 		elemToContact := make(map[int]bool)
 
-		nodesMutex.Lock()
+		activeNodesMutex.Lock()
 		lenght := getLenght()
 		//genero dei numeri casuali tutti differenti, corrispondono alla scelta di nodi da contattare
 		i := 0
@@ -123,16 +141,16 @@ func GetNodeToContact() []Node {
 				continue
 			}
 		}
-		nodesMutex.Unlock()
+		activeNodesMutex.Unlock()
 
 	} else {
 		//contatto tutti quelli che conosco
-		nodesMutex.Lock()
+		activeNodesMutex.Lock()
 		lenght := getLenght()
 		for i := 0; i < lenght; i++ {
 			selectedNode = append(selectedNode, nodesList[i])
 		}
-		nodesMutex.Unlock()
+		activeNodesMutex.Unlock()
 	}
 
 	return selectedNode
@@ -144,12 +162,12 @@ func GetNodesMulticast() map[int]*net.UDPAddr {
 
 	idMap := make(map[int]*net.UDPAddr)
 
-	nodesMutex.Lock()
+	activeNodesMutex.Lock()
 	lenght := getLenght()
 	for i := 0; i < lenght; i++ {
 		idMap[nodesList[i].ID] = nodesList[i].UDPAddr
 	}
-	nodesMutex.Unlock()
+	activeNodesMutex.Unlock()
 
 	return idMap
 }
@@ -158,21 +176,21 @@ func GetNodesMulticast() map[int]*net.UDPAddr {
 func GetNodesId() []int {
 	var array []int
 
-	nodesMutex.Lock()
+	activeNodesMutex.Lock()
 
 	lenght := getLenght()
 	for i := 0; i < lenght; i++ {
 		array = append(array, nodesList[i].ID)
 	}
 
-	nodesMutex.Unlock()
+	activeNodesMutex.Unlock()
 
 	return array
 }
 
 // funzione che aggiorna un nodo della lista, aggiorna stato, distanza e tempo di risposta
 func UpdateNode(id int, state int, responseTime int, distance int) {
-	nodesMutex.Lock()
+	activeNodesMutex.Lock()
 
 	for i := 0; i < len(nodesList); i++ {
 		if nodesList[i].ID == id {
@@ -184,26 +202,41 @@ func UpdateNode(id int, state int, responseTime int, distance int) {
 		}
 	}
 
-	nodesMutex.Unlock()
+	activeNodesMutex.Unlock()
 }
 
 // funzione che segnala il nodo come fallito e lo rimuove dalla lista
 func UpdateNodeState(id int) {
-	nodesMutex.Lock()
+	activeNodesMutex.Lock()
+	faultNodesMutex.Lock()
 
 	for i := 0; i < len(nodesList); i++ {
 		if nodesList[i].ID == id {
 
 			nodesList[i].State = 2
 			//rimuovo il nodo e lo aggiungo ai nodi falliti
-			failedNodesList = append(failedNodesList, nodesList[i])
+			faultNodesList = append(faultNodesList, nodesList[i])
 			nodesList = append(nodesList[:i], nodesList[i+1:]...)
 
 			break
 		}
 	}
 
-	nodesMutex.Unlock()
+	activeNodesMutex.Unlock()
+	faultNodesMutex.Unlock()
+}
+
+// funzione che elimina un nodo dalla lista dei nodi fault e lo aggiunge alla lista dei nodi fault
+func reviveFaultNode(faultId int) {
+	faultNodesMutex.Lock()
+
+	for i := 0; i < len(faultNodesList); i++ {
+		if faultNodesList[i].ID == faultId {
+			faultNodesList = append(faultNodesList[:i], faultNodesList[i+1:]...)
+		}
+	}
+
+	faultNodesMutex.Unlock()
 }
 
 // funzione che ritorna il numero di nodi attivi
@@ -212,16 +245,16 @@ func getLenght() int {
 }
 
 func PrintAllNodeList() {
-	nodesMutex.Lock()
+	activeNodesMutex.Lock()
 
 	fmt.Println("nodi attivi")
 	for i := 0; i < len(nodesList); i++ {
 		fmt.Printf("nodo id: %d  stato: %d  distanza: %d \n", nodesList[i].ID, nodesList[i].State, nodesList[i].Distance)
 	}
 	fmt.Println("nodi falliti")
-	for i := 0; i < len(failedNodesList); i++ {
-		fmt.Printf("nodo id: %d  stato: %d  distanza: %d \n", failedNodesList[i].ID, failedNodesList[i].State, failedNodesList[i].Distance)
+	for i := 0; i < len(faultNodesList); i++ {
+		fmt.Printf("nodo id: %d  stato: %d  distanza: %d \n", faultNodesList[i].ID, faultNodesList[i].State, faultNodesList[i].Distance)
 	}
-
-	nodesMutex.Unlock()
+	fmt.Printf("\n\n")
+	activeNodesMutex.Unlock()
 }

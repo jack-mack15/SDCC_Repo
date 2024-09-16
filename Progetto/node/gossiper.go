@@ -10,6 +10,7 @@ import (
 type Gossiper interface {
 	Gossip(id int)
 	HandleGossipMessage(id int, string string)
+	ReviveNode(id int)
 }
 
 //BIMODAL MULTICAST
@@ -42,7 +43,7 @@ func (i BimodalGossiper) Gossip(id int) {
 func (i BimodalGossiper) HandleGossipMessage(_ int, message string) {
 
 	fmt.Printf("Bimodal Multicast Handler, ricevuto nodo sus: %s\n", message)
-	idArray := ExtractArrayFromDigest(message)
+	idArray := extractIdArrayFromMessage(message)
 
 	if len(idArray) == 0 {
 		return
@@ -59,6 +60,9 @@ func (i BimodalGossiper) HandleGossipMessage(_ int, message string) {
 	fmt.Println("Bimodal Multicast Handler, ho terminato")
 }
 
+// funzione che gestisce il caso in cui un nodo fault si ripresenta nella rete
+func (i BimodalGossiper) ReviveNode(id int) {}
+
 //BLIND RUMOR MONGERING
 
 // struttura del blind rumor mongering
@@ -68,34 +72,38 @@ type BlindRumorGossiper struct{}
 // e va aggiornare la mappa dei fault conosciuti dagli altri nodi
 func (e BlindRumorGossiper) HandleGossipMessage(idSender int, message string) {
 
-	fmt.Printf("Blind Counter Handler, ricevuto nodo sus: %s\n", message)
+	fmt.Printf("Blind Counter Handler, ricevuto nodo sus: %s from: %d\n", message, idSender)
 	//message deve contenere sempre un solo id fault
-	updateIdArray := ExtractArrayFromDigest(message)
-	updateId := updateIdArray[0]
+	updateIdArray := extractIdArrayFromMessage(message)
+	faultId := updateIdArray[0]
 
 	if len(updateIdArray) != 1 {
 		return
 	}
 
-	if CheckPresenceDigestList(updateId) {
+	if CheckPresenceFaultNodesList(faultId) {
 		//blocco di codice se già ero a conoscenza del fault
 		//rimuovo idSender dalla lista di nodi da notificare se fosse presente
-		removeNodeToNotify(idSender, updateId)
+		removeNodeToNotify(idSender, faultId)
 
 		//decremento il contatore delle massime ripetizioni dell'update
-		decrementNumOfUpdateForId(updateId)
+		decrementNumOfUpdateForId(faultId)
 
 	} else {
 		//blocco di codice se non ero a conoscenza del fault
 
-		//aggiungere struct per updateId
-		addFaultNodeStruct(updateId)
-		removeNodeToNotify(idSender, updateId)
+		//aggiorno stato del nodo nella lista
+		UpdateNodeState(faultId)
+
+		//aggiungere struct per faultId
+		addFaultNodeStruct(faultId)
+
+		removeNodeToNotify(idSender, faultId)
 
 		//decremento il contatore delle massime ripetizioni dell'update
-		decrementNumOfUpdateForId(updateId)
+		decrementNumOfUpdateForId(faultId)
 
-		go gossiper.Gossip(updateId)
+		gossiper.Gossip(faultId)
 	}
 
 	fmt.Println("Blind Counter Handler, ho terminato")
@@ -105,9 +113,6 @@ func (e BlindRumorGossiper) HandleGossipMessage(idSender int, message string) {
 // implementazione del blind rumor mongering
 func (e BlindRumorGossiper) Gossip(faultId int) {
 
-	//aggiungo nodo al digest
-	AddOfflineNode(faultId)
-
 	//aggiorno stato del nodo nella lista
 	UpdateNodeState(faultId)
 
@@ -115,7 +120,7 @@ func (e BlindRumorGossiper) Gossip(faultId int) {
 	addFaultNodeStruct(faultId)
 
 	for {
-		if checkLenToNotifyList(faultId) <= 0 && getParameterF(faultId) <= 0 {
+		if checkLenToNotifyList(faultId) <= 0 || getParameterF(faultId) <= 0 {
 			break
 		}
 
@@ -129,10 +134,15 @@ func (e BlindRumorGossiper) Gossip(faultId int) {
 		}
 
 		//TODO rimuovere la sleep?
-		time.Sleep(5 * time.Second)
+		time.Sleep(2 * time.Second)
 
 		decrementNumOfUpdateForId(faultId)
 	}
+}
+
+// funzione che gestisce il caso in cui un nodo fault si ripresenta nella rete
+func (e BlindRumorGossiper) ReviveNode(faultId int) {
+	removeUpdate(faultId)
 }
 
 var gossiper Gossiper

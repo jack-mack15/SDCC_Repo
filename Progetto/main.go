@@ -63,23 +63,28 @@ func main() {
 		//scelgo i nodi da contattare
 		nodesToContact := node.GetNodeToContact()
 
-		go contactNode(nodesToContact)
+		contactNode(nodesToContact)
 
-		time.Sleep(5 * time.Second)
+		//TODO eliminare questa sleep
+		if node.GetMyId() == 3 {
+			time.Sleep(8 * time.Second)
+		}
+		time.Sleep(3 * time.Second)
+
 		node.PrintAllNodeList()
 
 		//TODO multicast non elimina correttamente i nodi falliti, o li stampa male?
+
+		//TODO aggiungere i controlli in caso un nodo fault si rifaccia vivo per il multicast
 
 		//TODO modificare il digest in modo tale che la stringa digest venga generata sul momento e non salvata ogni volta
 
 		//TODO in sendHeartBeat() nella deadline ci sta un "* 3" da modificare
 
-		//TODO ad ogni lettura e scrittura aggiungere un timeout
 		//MEGA TODO aggiungere in tutte le porzioni di codice, gestioni di fallimenti dei nodi contattati
+		//in realtà solo se aspetto un messaggio, altrimenti shalla
 
 		//TODO sistemare le approssimazioni e il calcolo della distanza e tempo di risposta
-
-		//TODO notificare anche il service registry dopo un fault, volendo comportamento settabile da impostazioni
 
 		//TODO aggiungere anche anti entropy: ovvero seleziono randomicamente un solo nodo e gli dico quello che so
 
@@ -106,6 +111,10 @@ func receiverHandler() {
 		}
 
 		go node.HandleUDPMessage(conn, remoteUDPAddr, buffer[:n])
+
+		if node.GetMyId() == 3 {
+			time.Sleep(8 * time.Second)
+		}
 	}
 }
 
@@ -145,7 +154,7 @@ func extractNodeList(str string) int {
 			log.Printf("extractNodeList()---> errore risoluzione indirizzo remoto %s: %v", currStrAddr, err)
 		}
 
-		check := node.AddActiveNode(currId, currStrAddr, currUDPAddr, currTCPAddr)
+		check := node.AddActiveNode(currId, 0, currStrAddr, currUDPAddr, currTCPAddr)
 
 		if !check {
 			nodeCount++
@@ -169,4 +178,5 @@ func contactNode(selectedNodes []node.Node) {
 		go node.SendHeartbeat(selectedNodes[i], node.GetMyId(), &wg)
 	}
 	wg.Wait()
+
 }

@@ -6,7 +6,6 @@ package node
 import (
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 )
 
@@ -41,8 +40,8 @@ func GetDigest() string {
 // ritorna una lista di id di nodi fault di cui non ero a conoscenza
 func CompareAndAddToDigest(remoteDigest string) []int {
 
-	ownArray := ExtractArrayFromDigest(digestToSend)
-	remoteArray := ExtractArrayFromDigest(remoteDigest)
+	ownArray := extractIdArrayFromMessage(digestToSend)
+	remoteArray := extractIdArrayFromMessage(remoteDigest)
 
 	var didntKnow []int
 
@@ -53,7 +52,7 @@ func CompareAndAddToDigest(remoteDigest string) []int {
 	}
 
 	for i := 0; i < len(remoteArray); i++ {
-		if !CheckPresenceNodeList(remoteArray[i]) {
+		if !CheckPresenceActiveNodesList(remoteArray[i]) {
 			didntKnow = append(didntKnow, remoteArray[i])
 			AddOfflineNode(remoteArray[i])
 		}
@@ -65,30 +64,11 @@ func CompareAndAddToDigest(remoteDigest string) []int {
 // funzione che viene attivata da compareDigest se ci sono nodi falliti di cui non sono a conoscenza
 func UpdateDigest(idArray []int) {
 	for i := 0; i < len(idArray); i++ {
-		if !CheckPresenceNodeList(idArray[i]) {
+		if !CheckPresenceActiveNodesList(idArray[i]) {
 			AddOfflineNode(idArray[i])
 		}
 		UpdateNodeState(idArray[i])
 	}
-}
-
-// funzione di ausilio che mi trasforma un digest da stringa a array di interi
-func ExtractArrayFromDigest(digest string) []int {
-	var array []int
-
-	if digest == "" {
-		return array
-	}
-
-	count := strings.Count(digest, "/") + 1
-	arrayElems := strings.SplitN(digest, "/", count)
-
-	for i := 0; i < count; i++ {
-		currId, _ := strconv.Atoi(arrayElems[i])
-		array = append(array, currId)
-	}
-
-	return array
 }
 
 // funzione che verifica se il nodo è stato già segnalato come fallito

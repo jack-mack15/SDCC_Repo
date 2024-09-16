@@ -6,8 +6,13 @@ import (
 )
 
 // struct di ausilio per il blind rumor mongering
+
 var updatesList []*blindInfoStruct
 var updateListMutex sync.Mutex
+
+// slice che tiene traccia dei nodi fault per cui è stato eseguito il gossip
+var oldUpdates []int
+var oldUpdatesMutex sync.Mutex
 
 type blindInfoStruct struct {
 	//mutex per la manipolazione della struct
@@ -22,29 +27,6 @@ type blindInfoStruct struct {
 	f int
 }
 
-// funzione di ausilio per il blind rumor gossip. verifica se un update è già conosciuto
-// ritorna true se ero a conoscenza del fault, false altrimenti
-func checkUpdate(id int) bool {
-	updateListMutex.Lock()
-
-	check := false
-	for i := 0; i < len(updatesList); i++ {
-		if updatesList[i].id == id {
-			check = true
-			break
-		}
-	}
-
-	updateListMutex.Unlock()
-
-	if !check {
-		addFaultNodeStruct(id)
-		return false
-	}
-
-	return true
-}
-
 // funzione cha aggiunge un nodo alla lista di struct se non fosse presente
 func addFaultNodeStruct(faultId int) {
 
@@ -55,6 +37,16 @@ func addFaultNodeStruct(faultId int) {
 			return
 		}
 	}
+
+	oldUpdatesMutex.Lock()
+	for i := 0; i < len(oldUpdates); i++ {
+		if oldUpdates[i] == faultId {
+			updateListMutex.Unlock()
+			oldUpdatesMutex.Unlock()
+			return
+		}
+	}
+	oldUpdatesMutex.Unlock()
 
 	currElem := blindInfoStruct{}
 	currElem.id = faultId
@@ -87,16 +79,20 @@ func removeNodeToNotify(senderId int, faultId int) {
 		return
 	}
 	currStruct.structMutex.Lock()
+	lenght := len(currStruct.toNotify)
 
-	for i := 0; i < len(currStruct.toNotify); i++ {
+	for i := 0; i < lenght; i++ {
 		//blocco di codice se senderId è presente
-		if currStruct.toNotify[i] == senderId {
-			//rimuovo senderId dalla lista poichè conosco il fault
+		if currStruct.toNotify[i] == senderId || currStruct.toNotify[i] == faultId {
 			currStruct.toNotify = append(currStruct.toNotify[:i], currStruct.toNotify[i+1:]...)
-			if len(currStruct.toNotify) == 0 {
+			i--
+			lenght--
+			if lenght == 0 {
+				currStruct.structMutex.Unlock()
 				removeStruct(faultId)
+				return
 			}
-			break
+			//break
 		}
 	}
 
@@ -112,8 +108,15 @@ func removeStruct(faultId int) {
 
 	for i := 0; i < len(updatesList); i++ {
 		if updatesList[i].id == faultId {
+
+			//la aggiungo alla slice dei fault passati
+			oldUpdatesMutex.Lock()
+			oldUpdates = append(oldUpdates, updatesList[i].id)
+			oldUpdatesMutex.Unlock()
+
 			//rimuovo la struct
 			updatesList = append(updatesList[:i], updatesList[i+1:]...)
+			break
 		}
 	}
 
@@ -161,6 +164,11 @@ func getNodesToNotify(faultId int) []int {
 	var nodesToNotifyList []int
 
 	faultIdStruct := getStruct(faultId)
+
+	if faultIdStruct == nil {
+		return nodesToNotifyList
+	}
+
 	faultIdStruct.structMutex.Lock()
 
 	structToNotifyList := faultIdStruct.toNotify
@@ -225,6 +233,23 @@ func getStruct(faultId int) *blindInfoStruct {
 		return nil
 	}
 	return currStruct
+}
+
+// funzione che rimuove un nodo in caso si ripresentasse nella rete
+// che sia presente tra gli old update o quelli da "gossipare"
+func removeUpdate(faultId int) {
+
+	removeStruct(faultId)
+
+	oldUpdatesMutex.Lock()
+	for i := 0; i < len(oldUpdates); i++ {
+		if oldUpdates[i] == faultId {
+			oldUpdates = append(oldUpdates[:i], oldUpdates[i+1:]...)
+			oldUpdatesMutex.Unlock()
+			return
+		}
+	}
+	oldUpdatesMutex.Unlock()
 }
 
 // funzione che restituisce il parametro f di una struct
