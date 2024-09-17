@@ -189,7 +189,7 @@ func GetNodesId() []int {
 }
 
 // funzione che aggiorna un nodo della lista, aggiorna stato, distanza e tempo di risposta
-func UpdateNode(id int, state int, responseTime int, distance int) {
+func UpdateNodeDistance(id int, state int, responseTime int, distance int) {
 	activeNodesMutex.Lock()
 
 	for i := 0; i < len(nodesList); i++ {

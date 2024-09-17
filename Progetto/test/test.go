@@ -2,34 +2,30 @@ package main
 
 import "fmt"
 
-// Definizione della struct che contiene una slice di interi
-type MyStruct struct {
-	numbers []int
-}
-
-// Funzione per rimuovere gli elementi che corrispondono a un certo valore
-func removeElements(value int, ms *MyStruct) {
-	for i := 0; i < len(ms.numbers); {
-		if ms.numbers[i] == value {
-			// Rimuovi l'elemento corrente usando append
-			ms.numbers = append(ms.numbers[:i], ms.numbers[i+1:]...)
-		} else {
-			// Passa all'elemento successivo solo se non è stato rimosso
-			i++
-		}
+func inserisciOrdinato(slice []int, elemento int) []int {
+	// Trova l'indice giusto in cui inserire l'elemento
+	i := 0
+	for i < len(slice) && slice[i] < elemento {
+		i++
 	}
+
+	if i < len(slice) && slice[i] == elemento {
+		return slice
+	}
+
+	// Inserisci l'elemento nella posizione trovata
+	slice = append(slice[:i], append([]int{elemento}, slice[i:]...)...)
+	return slice
 }
 
 func main() {
+	// Slice iniziale
+	slice := []int{1, 3, 5, 7, 9}
 
-	// Inizializza la struct con una slice di interi
-	ms := &MyStruct{numbers: []int{1, 2, 3, 4, 3, 5, 3, 6}}
+	// Aggiungi nuovi elementi mantenendo l'ordine crescente
+	slice = inserisciOrdinato(slice, 4)
+	slice = inserisciOrdinato(slice, 1)
+	slice = inserisciOrdinato(slice, 10)
 
-	fmt.Println("Prima della rimozione:", ms.numbers)
-
-	// Rimuovi gli elementi che corrispondono al valore 3
-	removeElements(3, ms)
-
-	fmt.Println("Dopo la rimozione:", ms.numbers)
-
+	fmt.Println(slice) // Output: [0 1 3 4 5 7 9 10]
 }

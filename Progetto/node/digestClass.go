@@ -4,50 +4,72 @@ package node
 //mantiene e aggiorna anche il digest che viene allegato in fase di "gossip repair"
 
 import (
-	"sort"
 	"strconv"
 	"sync"
 )
 
 var offlineNodes []int
-var digestToSend string
-var digestMutex sync.Mutex
+var offlineNodesMutex sync.Mutex
 
 // funzione che aggiunge un nodo alla lista e aggiorna il digest
-// TODO inserimento nel posto corretto e rimuovere il sort
 func AddOfflineNode(id int) {
-	digestMutex.Lock()
-	offlineNodes = append(offlineNodes, id)
-	sortOfflineNodes()
-	digestToSend = ""
+	offlineNodesMutex.Lock()
 
-	for i := 0; i < len(offlineNodes); i++ {
-		digestToSend = digestToSend + "/" + strconv.Itoa(offlineNodes[i])
+	i := 0
+	for i < len(offlineNodes) && offlineNodes[i] < id {
+		i++
 	}
 
-	digestMutex.Unlock()
+	if i < len(offlineNodes) && offlineNodes[i] == id {
+		offlineNodesMutex.Unlock()
+		return
+	}
+
+	offlineNodes = append(offlineNodes[:i], append([]int{id}, offlineNodes[i:]...)...)
+
+	offlineNodesMutex.Unlock()
 }
 
 // funzione che ritorna il digest da allegare ad un messaggio
 func GetDigest() string {
-	if len(offlineNodes) == 0 {
-		return ""
+	offlineNodesMutex.Lock()
+
+	digest := ""
+
+	for i := 0; i < len(offlineNodes); i++ {
+		stringElem := strconv.Itoa(offlineNodes[i])
+		digest = digest + "/" + stringElem
 	}
-	return digestToSend
+
+	offlineNodesMutex.Unlock()
+
+	return digest
+}
+
+// funzione che rimuove un elemento dalla lista dei nodi offline
+func removeOfflineNode(id int) {
+	offlineNodesMutex.Lock()
+	for i := 0; i < len(offlineNodes); i++ {
+		if offlineNodes[i] == id {
+			offlineNodes = append(offlineNodes[:i], offlineNodes[i+1:]...)
+			break
+		}
+	}
+	offlineNodesMutex.Unlock()
 }
 
 // funzione che riceve un digest di un altro nodo e lo confronta con il proprio digest
 // ritorna una lista di id di nodi fault di cui non ero a conoscenza
-func CompareAndAddToDigest(remoteDigest string) []int {
+func CompareAndAddOfflineNodes(remoteDigest string) []int {
 
-	ownArray := extractIdArrayFromMessage(digestToSend)
+	ownArray := extractIdArrayFromMessage(GetDigest())
 	remoteArray := extractIdArrayFromMessage(remoteDigest)
 
 	var didntKnow []int
 
 	//condizione verificata se non conosco nessuno
 	if len(ownArray) == 0 {
-		UpdateDigest(remoteArray)
+		UpdateOfflineNodes(remoteArray)
 		return didntKnow
 	}
 
@@ -61,33 +83,12 @@ func CompareAndAddToDigest(remoteDigest string) []int {
 	return didntKnow
 }
 
-// funzione che viene attivata da compareDigest se ci sono nodi falliti di cui non sono a conoscenza
-func UpdateDigest(idArray []int) {
+// funzione che viene attivata da CompareAndAddOfflineNodes se ci sono nodi falliti di cui non sono a conoscenza
+func UpdateOfflineNodes(idArray []int) {
 	for i := 0; i < len(idArray); i++ {
 		if !CheckPresenceActiveNodesList(idArray[i]) {
 			AddOfflineNode(idArray[i])
 		}
 		UpdateNodeState(idArray[i])
 	}
-}
-
-// funzione che verifica se il nodo è stato già segnalato come fallito
-// ritorna true se è presente, false altrimenti
-func CheckPresenceDigestList(id int) bool {
-	digestMutex.Lock()
-
-	for i := 0; i < len(offlineNodes); i++ {
-		if offlineNodes[i] == id {
-			digestMutex.Unlock()
-			return true
-		}
-	}
-
-	digestMutex.Unlock()
-	return false
-}
-
-// funzione di ausilio che ordina gli elementi della lista di ID falliti
-func sortOfflineNodes() {
-	sort.Ints(offlineNodes)
 }

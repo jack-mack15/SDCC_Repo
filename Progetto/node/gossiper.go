@@ -29,7 +29,7 @@ func (i BimodalGossiper) Gossip(id int) {
 
 	//recupero id di tutti i nodi da contattare in multicast
 	idMap := GetNodesMulticast()
-	fmt.Printf("Bimodal Multicast Gossip, invio update a tutti: %v\n", idMap)
+	fmt.Printf("Bimodal Multicast Gossip, nodi da notificare: %v\n", idMap)
 
 	gossipMessage := writeMulticastGossipMessage(GetMyId(), GetMyPort(), strconv.Itoa(id))
 
@@ -38,8 +38,8 @@ func (i BimodalGossiper) Gossip(id int) {
 	}
 }
 
-// vedo se nel digest del messaggio è presente un id di un nodo fallito di cui non
-// ero a conoscenza e in caso aggiorno il mio digest
+// funzione che viene eseguita quando ricevo un update da un nodo o
+// quando ottengo il digest di un heartbeat
 func (i BimodalGossiper) HandleGossipMessage(_ int, message string) {
 
 	fmt.Printf("Bimodal Multicast Handler, ricevuto nodo sus: %s\n", message)
@@ -49,7 +49,7 @@ func (i BimodalGossiper) HandleGossipMessage(_ int, message string) {
 		return
 	} else {
 		//nodi fault di cui non ero a conoscenza
-		idFaultNodes := CompareAndAddToDigest(message)
+		idFaultNodes := CompareAndAddOfflineNodes(message)
 
 		//aggiorno lo stato dei nodi in nodeClass
 		for i := 0; i < len(idFaultNodes); i++ {
@@ -61,15 +61,16 @@ func (i BimodalGossiper) HandleGossipMessage(_ int, message string) {
 }
 
 // funzione che gestisce il caso in cui un nodo fault si ripresenta nella rete
-func (i BimodalGossiper) ReviveNode(id int) {}
+func (i BimodalGossiper) ReviveNode(id int) {
+	removeOfflineNode(id)
+}
 
 //BLIND RUMOR MONGERING
 
 // struttura del blind rumor mongering
 type BlindRumorGossiper struct{}
 
-// funzione che vede se il digest del messaggio contine id faul che non conosco
-// e va aggiornare la mappa dei fault conosciuti dagli altri nodi
+// funzione che gestisce un update ricevuto da un altro nodo
 func (e BlindRumorGossiper) HandleGossipMessage(idSender int, message string) {
 
 	fmt.Printf("Blind Counter Handler, ricevuto nodo sus: %s from: %d\n", message, idSender)
@@ -110,7 +111,7 @@ func (e BlindRumorGossiper) HandleGossipMessage(idSender int, message string) {
 
 }
 
-// implementazione del blind rumor mongering
+// funzione che va a diffondere un update
 func (e BlindRumorGossiper) Gossip(faultId int) {
 
 	//aggiorno stato del nodo nella lista
@@ -143,6 +144,43 @@ func (e BlindRumorGossiper) Gossip(faultId int) {
 // funzione che gestisce il caso in cui un nodo fault si ripresenta nella rete
 func (e BlindRumorGossiper) ReviveNode(faultId int) {
 	removeUpdate(faultId)
+}
+
+//ANTI ENTROPY GOSSIP
+
+// struttura di anti entropy
+type AntiEntropyGossiper struct{}
+
+// funzione che gestisce gli update ricevuti da un nodo
+func (e AntiEntropyGossiper) HandleGossipMessage(idSender int, message string) {
+
+	fmt.Printf("Anti Entropy Handler, ricevuto nodo sus: %s\n", message)
+	idArray := extractIdArrayFromMessage(message)
+
+	if len(idArray) == 0 {
+		return
+	} else {
+		//nodi fault di cui non ero a conoscenza
+		idFaultNodes := CompareAndAddOfflineNodes(message)
+
+		//aggiorno lo stato dei nodi in nodeClass
+		for i := 0; i < len(idFaultNodes); i++ {
+			UpdateNodeState(idFaultNodes[i])
+		}
+	}
+
+	fmt.Println("Anti Entropy Handler, ho terminato")
+}
+
+// funzione che non fa nulla
+func (e AntiEntropyGossiper) Gossip(faultId int) {
+
+	//TODO implementare un ciclo for infinito con selezione random e
+}
+
+// funzione che rimuove un nodo fault che si è ripresentato nella rete
+func (e AntiEntropyGossiper) ReviveNode(id int) {
+	removeOfflineNode(id)
 }
 
 var gossiper Gossiper

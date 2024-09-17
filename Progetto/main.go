@@ -73,20 +73,11 @@ func main() {
 
 		node.PrintAllNodeList()
 
-		//TODO multicast non elimina correttamente i nodi falliti, o li stampa male?
-
-		//TODO aggiungere i controlli in caso un nodo fault si rifaccia vivo per il multicast
-
-		//TODO modificare il digest in modo tale che la stringa digest venga generata sul momento e non salvata ogni volta
-
+		//TODO robba da rimuovere:
 		//TODO in sendHeartBeat() nella deadline ci sta un "* 3" da modificare
 
-		//MEGA TODO aggiungere in tutte le porzioni di codice, gestioni di fallimenti dei nodi contattati
-		//in realtà solo se aspetto un messaggio, altrimenti shalla
-
-		//TODO sistemare le approssimazioni e il calcolo della distanza e tempo di risposta
-
 		//TODO aggiungere anche anti entropy: ovvero seleziono randomicamente un solo nodo e gli dico quello che so
+		//se proprio serve eh
 
 	}
 }

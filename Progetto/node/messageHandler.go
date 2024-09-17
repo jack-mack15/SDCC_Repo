@@ -17,7 +17,6 @@ import (
 // funzione che gestisce i messaggi ricevuti da altri nodi
 func HandleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []byte) {
 
-	//TODO verifica il tipo di messaggio
 	message := string(buffer)
 	//fmt.Printf("handleUDPMessage()--> message: %s\n", message)
 
@@ -32,6 +31,7 @@ func HandleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []by
 
 	if code == "000" || code == "111" {
 		//GESTIONE SEMPLICE HEARTBEAT
+
 		//TODO rimuovere questo blocco di codice che simula un ritardo
 		max := 200
 		randomNumber := rand.Intn(max) + 100
@@ -206,9 +206,7 @@ func SendHeartbeat(singleNode Node, myId int, wg *sync.WaitGroup) {
 		}
 
 		currDistance := calculateDistance(responseTime)
-		UpdateNode(singleNode.ID, 1, int(responseTime.Milliseconds()), currDistance)
-
-		//fmt.Printf("sendHeartBeat()--> risposta dal nodo: %s\n", reply)
+		UpdateNodeDistance(singleNode.ID, 1, int(responseTime.Milliseconds()), currDistance)
 	}
 }
 

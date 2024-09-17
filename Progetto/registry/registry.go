@@ -10,15 +10,14 @@ import (
 	"sync"
 )
 
-//TODO gestire notifiche di fallimento
-
 type nodeInfo struct {
 	id   int
 	ip   string
 	port int
 }
 
-var mutex sync.Mutex
+var listMutex sync.Mutex
+var messageMutex sync.Mutex
 
 var nodeList []nodeInfo
 var messageList string
@@ -57,71 +56,52 @@ func handleConnection(conn net.Conn) {
 		return
 	}
 
-	count := strings.Count(message, "#")
-	if count == 1 {
+	count := strings.Count(message, "#") + 1
 
-		count++
-		parts := strings.SplitN(message, "#", count)
+	parts := strings.SplitN(message, "#", count)
 
-		fmt.Printf("il registry ha ricevuto: %s", parts[1])
+	fmt.Printf("il registry ha ricevuto: %s", parts[1])
 
-		//recupero indirizzo del nodo e numero porta
-		clientAddr := conn.RemoteAddr().String()
-		parts = strings.SplitN(clientAddr, ":", 2)
-		if len(parts) != 2 {
-			fmt.Println("formato della linea non valido:", clientAddr)
-		}
-		address := strings.TrimSpace(parts[0])
-		port, err := strconv.Atoi(strings.TrimSpace(parts[1]))
-		if err != nil {
-			fmt.Println("errore nella conversione:", err)
-			return
-		}
-
-		//aggiungo il nuovo nodo alla lista di nodi e aggiorno il messaggio di risposta
-		currMessage := addNode(address, port)
-
-		//rispondo al nodo che mi ha contattato con il messaggio di risposta attuale
-		_, err = conn.Write([]byte(currMessage))
-		if err != nil {
-			fmt.Println("errore invio risp:", err.Error())
-			return
-		}
-
-		fmt.Printf("tutto ok\n\n")
-	} else {
-		count++
-		//TODO lettura notifica di fallimento
-		//uso il messaggio ricevuto per ottenere id fallito
-
-		id := 2
-		mutex.Lock()
-
-		lenght := len(nodeList)
-		for i := 0; i < lenght; i++ {
-			if nodeList[i].id == id {
-				nodeList = append(nodeList[:i], nodeList[i+1:]...)
-				break
-			}
-		}
-
-		mutex.Unlock()
+	//recupero indirizzo del nodo e numero porta
+	clientAddr := conn.RemoteAddr().String()
+	parts = strings.SplitN(clientAddr, ":", 2)
+	if len(parts) != 2 {
+		fmt.Println("formato della linea non valido:", clientAddr)
 	}
+	address := strings.TrimSpace(parts[0])
+	port, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err != nil {
+		fmt.Println("errore nella conversione:", err)
+		return
+	}
+
+	//aggiungo il nuovo nodo alla lista di nodi e aggiorno il messaggio di risposta
+	currMessage := addNode(address, port)
+
+	//rispondo al nodo che mi ha contattato con il messaggio di risposta attuale
+	_, err = conn.Write([]byte(currMessage))
+	if err != nil {
+		fmt.Println("errore invio risp:", err.Error())
+		return
+	}
+	fmt.Printf("tutto ok\n\n")
+
 }
 
 func addNode(addr string, port int) string {
+
+	listMutex.Lock()
 
 	check, oldId := checkNodePresence(addr, port)
 
 	if check {
 		currMessage := strconv.Itoa(oldId) + messageList + "\n"
+		listMutex.Unlock()
 		return currMessage
 	}
 	currNode := nodeInfo{}
 	currNode.ip = addr
 	currNode.port = port
-
-	mutex.Lock()
 
 	listLen := len(nodeList)
 	id := 0
@@ -133,10 +113,12 @@ func addNode(addr string, port int) string {
 
 	currNode.id = id
 	nodeList = append(nodeList, currNode)
+	listMutex.Unlock()
+
+	messageMutex.Lock()
 	currMessage := strconv.Itoa(id) + messageList + "\n"
 	messageList = messageList + "#" + strconv.Itoa(id) + "/" + addr + ":" + strconv.Itoa(port)
-	fmt.Println(messageList)
-	mutex.Unlock()
+	messageMutex.Unlock()
 
 	return currMessage
 
