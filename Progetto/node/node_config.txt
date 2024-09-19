@@ -11,6 +11,7 @@ p=0.0
 def_RTT=500
 
 #numero di nodi che un singolo nodo può contattare ad ogni iterazione
+#questo parametro non si riferisce ai parametri di gossip, ma alla diffusione degli heartbeat
 #num=0 indica che si prende la radice quadrata del numero di nodi che il nodo conosce
 #num=-1 indica che si contattano tutti i nodi che si conosce
 num=0

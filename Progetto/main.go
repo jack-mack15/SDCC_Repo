@@ -69,12 +69,23 @@ func main() {
 		if node.GetMyId() == 3 {
 			time.Sleep(8 * time.Second)
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(4 * time.Second)
 
 		node.PrintAllNodeList()
 
-		//TODO robba da rimuovere:
-		//TODO in sendHeartBeat() nella deadline ci sta un "* 3" da modificare
+		//TODO controllare tutta la robba da eliminare
+		//in receiverHanlder()
+		//in HanldeUDP
+		//blind rumor gossip, in gossip, ma forse è da sistemare in un dato del file config
+		//in handleUDP ci stanno i vechi delay
+
+		//TODO sistemazione del codice
+
+		//TODO gestire meglio le chiusure dei canali?
+
+		//TODO riguardare il modo con cui si contatta il registry
+
+		//TODO in sendHeartBeat() nella deadline ci sta un "* 3" da modificare e mettere un valore confiigurabile da file
 
 		//TODO aggiungere anche anti entropy: ovvero seleziono randomicamente un solo nodo e gli dico quello che so
 		//se proprio serve eh
@@ -103,6 +114,7 @@ func receiverHandler() {
 
 		go node.HandleUDPMessage(conn, remoteUDPAddr, buffer[:n])
 
+		//TODO elimina questa parte
 		if node.GetMyId() == 3 {
 			time.Sleep(8 * time.Second)
 		}

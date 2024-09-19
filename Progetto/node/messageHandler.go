@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math/rand"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,7 +16,6 @@ import (
 func HandleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []byte) {
 
 	message := string(buffer)
-	//fmt.Printf("handleUDPMessage()--> message: %s\n", message)
 
 	count := strings.Count(message, "#") + 1
 	if count == 0 {
@@ -33,12 +30,12 @@ func HandleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []by
 		//GESTIONE SEMPLICE HEARTBEAT
 
 		//TODO rimuovere questo blocco di codice che simula un ritardo
-		max := 200
-		randomNumber := rand.Intn(max) + 100
-		time.Sleep(time.Duration(randomNumber) * time.Millisecond)
-		if randomNumber > 300 {
-			os.Exit(0)
-		}
+		//max := 200
+		//randomNumber := rand.Intn(max) + 100
+		//time.Sleep(time.Duration(randomNumber) * time.Millisecond)
+		//if randomNumber > 300 {
+		//	os.Exit(0)
+		//}
 		//qui finisce il blocco in questione
 
 		//invio risposta
@@ -57,7 +54,6 @@ func HandleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []by
 
 			gossipMessage := parts[3]
 			go gossiper.HandleGossipMessage(id, gossipMessage)
-			fmt.Println("messaggio gossip ricevuto")
 		}
 
 	} else if code == "222" {
@@ -72,8 +68,6 @@ func HandleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []by
 		go gossiper.HandleGossipMessage(id, parts[3])
 
 	}
-
-	//fmt.Printf("handleUDPMessage() 000 --> tutto ok\n\n")
 }
 
 // funzione che recupera info dall'heartbeat ricevuto e verifica se il nodo mittente è presente
@@ -173,6 +167,7 @@ func SendHeartbeat(singleNode Node, myId int, wg *sync.WaitGroup) {
 
 		message := writeHeartBeatMessage(myId, GetOwnUDPAddr().Port)
 
+		//TODO cambiare questo timer
 		timerErr := conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(precResponseTime) * 3))
 		if timerErr != nil {
 			return
@@ -190,13 +185,11 @@ func SendHeartbeat(singleNode Node, myId int, wg *sync.WaitGroup) {
 		//responseTime è di tipo Duration
 		responseTime := time.Since(startTime)
 
-		//fmt.Printf("sendHeartBeat()--> responseTime in time: %d \n\n", int(responseTime.Milliseconds()))
-
 		//entro in questo if se il timeout termina prima di ricezione
 		if err != nil {
 			var netErr net.Error
 			if errors.As(err, &netErr) && netErr.Timeout() {
-				fmt.Printf("sendHeartBeat()--> time_out scaduto, nodo sospetto id: %d\n", singleNode.ID)
+				fmt.Printf("[PEER %d] time out expired for node: %d\n\n", GetMyId(), singleNode.ID)
 
 				//invoco il gossiper poichè ho scoperto un nodo fault
 				go gossiper.Gossip(singleNode.ID)

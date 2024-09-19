@@ -247,14 +247,26 @@ func getLenght() int {
 func PrintAllNodeList() {
 	activeNodesMutex.Lock()
 
-	fmt.Println("nodi attivi")
+	fmt.Printf("[PEER %d] active nodes\n", GetMyId())
 	for i := 0; i < len(nodesList); i++ {
 		fmt.Printf("nodo id: %d  stato: %d  distanza: %d \n", nodesList[i].ID, nodesList[i].State, nodesList[i].Distance)
 	}
-	fmt.Println("nodi falliti")
-	for i := 0; i < len(faultNodesList); i++ {
-		fmt.Printf("nodo id: %d  stato: %d  distanza: %d \n", faultNodesList[i].ID, faultNodesList[i].State, faultNodesList[i].Distance)
+
+	if len(nodesList) == 0 {
+		fmt.Printf("None\n")
 	}
-	fmt.Printf("\n\n")
+
+	fmt.Printf("[PEER %d] fault nodes\n", GetMyId())
+
+	for i := 0; i < len(faultNodesList); i++ {
+		fmt.Printf("nodo id: %d  stato: %d  distanza: %d\n\n", faultNodesList[i].ID, faultNodesList[i].State, faultNodesList[i].Distance)
+	}
+
+	if len(faultNodesList) == 0 {
+		fmt.Printf("None\n\n")
+	}
+
+	fmt.Printf("\n")
+
 	activeNodesMutex.Unlock()
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -45,12 +46,18 @@ var f int
 
 func ReadConfigFile() int {
 
-	cwd, err := os.Getwd()
+	//recupero il path del file delle configurazioni
+	exePath, err := os.Executable()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("ReadConfigFile()--> errore apertura file:", err)
 	}
 
-	file, err := os.Open(cwd + "\\node\\node_config.txt")
+	exeDir := filepath.Dir(exePath)
+
+	filePath := filepath.Join(exeDir, "node", "node_config.txt")
+
+	file, err := os.Open(filePath)
+
 	if err != nil {
 		fmt.Println("ReadConfigFile()--> errore nell'apertura del file:", err)
 		return 0
