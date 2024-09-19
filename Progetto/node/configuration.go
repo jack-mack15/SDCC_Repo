@@ -50,6 +50,7 @@ func ReadConfigFile() int {
 	exePath, err := os.Executable()
 	if err != nil {
 		fmt.Println("ReadConfigFile()--> errore apertura file:", err)
+<<<<<<< HEAD
 	}
 
 	exeDir := filepath.Dir(exePath)
@@ -58,6 +59,16 @@ func ReadConfigFile() int {
 
 	file, err := os.Open(filePath)
 
+=======
+		}
+
+	exeDir := filepath.Dir(exePath)
+
+    	filePath := filepath.Join(exeDir, "node", "node_config.txt")
+	
+    	file, err := os.Open(filePath)
+	
+>>>>>>> 874cd59f623df59896e5852491b5dd8fec322695
 	if err != nil {
 		fmt.Println("ReadConfigFile()--> errore nell'apertura del file:", err)
 		return 0
