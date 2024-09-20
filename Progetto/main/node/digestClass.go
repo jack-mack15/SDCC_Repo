@@ -1,4 +1,4 @@
-package node
+package main
 
 //file che gestisce la lista dei nodi della rete che hanno subito un fallimento e sono disattivi
 //mantiene e aggiorna anche il digest che viene allegato in fase di "gossip repair"

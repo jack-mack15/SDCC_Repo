@@ -2,7 +2,6 @@ package main
 
 //nella shell dove si lancia il codice go eseguire prima:  export GODEBUG=netdns=go
 import (
-	"awesomeProject/node"
 	"fmt"
 	"log"
 	"net"
@@ -15,14 +14,14 @@ import (
 func main() {
 
 	//SET UP del nodo
-	err := node.ReadConfigFile()
+	err := ReadConfigFile()
 	if err == 0 {
 		fmt.Println("errore nel recupero del file di conf")
 		return
 	}
 
 	//"istanzio" un gossiper in base al file di config
-	node.InitGossiper()
+	InitGossiper()
 
 	//ottengo un numero di porta da so e ottengo il mio indirizzo
 	listener, err2 := net.Listen("tcp", ":0")
@@ -31,12 +30,12 @@ func main() {
 	}
 	myPort := listener.Addr().(*net.TCPAddr).Port
 	listener.Close()
-	node.SetMyPort(myPort)
-	node.SetOwnUDPAddr(&net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: myPort})
-	node.SetOwnTCPAddr(&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: myPort})
+	SetMyPort(myPort)
+	SetOwnUDPAddr(&net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: myPort})
+	SetOwnTCPAddr(&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: myPort})
 
 	//contatto il registry
-	sdResponseString := node.ContactRegistry(node.GetOwnTCPAddr(), node.GetSDInfoString())
+	sdResponseString := ContactRegistry(GetOwnTCPAddr(), GetSDInfoString())
 
 	howMany := extractNodeList(sdResponseString)
 	if howMany == 0 {
@@ -45,7 +44,7 @@ func main() {
 		for count := 0; count < 5; count++ {
 			if howMany == 0 && count < 5 {
 				time.Sleep(5 * time.Second)
-				sdResponseString = node.ContactRegistry(node.GetOwnTCPAddr(), node.GetSDInfoString())
+				sdResponseString = ContactRegistry(GetOwnTCPAddr(), GetSDInfoString())
 				howMany = extractNodeList(sdResponseString)
 			} else {
 				break
@@ -61,17 +60,17 @@ func main() {
 
 	for {
 		//scelgo i nodi da contattare
-		nodesToContact := node.GetNodeToContact()
+		nodesToContact := GetNodeToContact()
 
 		contactNode(nodesToContact)
 
 		//TODO eliminare questa sleep
-		if node.GetMyId() == 3 {
+		if GetMyId() == 3 {
 			time.Sleep(8 * time.Second)
 		}
 		time.Sleep(4 * time.Second)
 
-		node.PrintAllNodeList()
+		PrintAllNodeList()
 
 		//TODO controllare tutta la robba da eliminare
 		//in receiverHanlder()
@@ -96,7 +95,7 @@ func main() {
 // funzione che smista le richieste di connessioni da parte di altri nodi
 func receiverHandler() {
 
-	conn, err := net.ListenUDP("udp", node.GetOwnUDPAddr())
+	conn, err := net.ListenUDP("udp", GetOwnUDPAddr())
 	if err != nil {
 		fmt.Println("receiverHandler()--> errore creazione listener UDP:", err)
 		return
@@ -112,10 +111,10 @@ func receiverHandler() {
 			continue
 		}
 
-		go node.HandleUDPMessage(conn, remoteUDPAddr, buffer[:n])
+		go HandleUDPMessage(conn, remoteUDPAddr, buffer[:n])
 
 		//TODO elimina questa parte
-		if node.GetMyId() == 3 {
+		if GetMyId() == 3 {
 			time.Sleep(8 * time.Second)
 		}
 	}
@@ -136,7 +135,7 @@ func extractNodeList(str string) int {
 
 	parts := strings.SplitN(str, "#", count)
 	myId, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
-	node.SetMyId(myId)
+	SetMyId(myId)
 
 	for i := 1; i < count; i++ {
 
@@ -157,7 +156,7 @@ func extractNodeList(str string) int {
 			log.Printf("extractNodeList()---> errore risoluzione indirizzo remoto %s: %v", currStrAddr, err)
 		}
 
-		check := node.AddActiveNode(currId, 0, currStrAddr, currUDPAddr, currTCPAddr)
+		check := AddActiveNode(currId, 0, currStrAddr, currUDPAddr, currTCPAddr)
 
 		if !check {
 			nodeCount++
@@ -169,7 +168,7 @@ func extractNodeList(str string) int {
 
 // funzione che va a contattare i nodi della lista per vedere se sono attivi
 // sceglie i nodi e poi invoca sendHeartBeat()
-func contactNode(selectedNodes []node.Node) {
+func contactNode(selectedNodes []Node) {
 
 	//contatto i nodi
 	lenght := len(selectedNodes)
@@ -178,7 +177,7 @@ func contactNode(selectedNodes []node.Node) {
 
 	for i := 0; i < lenght; i++ {
 		wg.Add(1)
-		go node.SendHeartbeat(selectedNodes[i], node.GetMyId(), &wg)
+		go SendHeartbeat(selectedNodes[i], GetMyId(), &wg)
 	}
 	wg.Wait()
 
