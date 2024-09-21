@@ -33,3 +33,6 @@ max_iter=2
 #indirizzo ip e porta del service discovery
 sd_ip=127.0.0.1
 sd_port=8080
+
+#porta su cui si mette in ascolto il seguente nodo
+my_port_8080

@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  server:
+    build: ./registry
+    container_name: registry
+    networks:
+      - udp_net
+    ports:
+      - "8080:8080/tcp"
+
+  client1:
+    build: ./node
+    container_name: node1
+    networks:
+      - udp_net
+    ports:
+      - "8080:8081/udp"
+    depends_on:
+      - registry
+    environment:
+      SERVER_ADDRESS: registry:8080
+
+  client2:
+    build: ./node
+    container_name: node2
+    networks:
+      - udp_net
+    ports:
+      - "8080:8082/udp"
+    depends_on:
+      - registry
+    environment:
+      SERVER_ADDRESS: registry:8080
+
+networks:
+  udp_net:
+    driver: bridge

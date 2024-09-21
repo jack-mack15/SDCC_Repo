@@ -23,16 +23,20 @@ func main() {
 	//"istanzio" un gossiper in base al file di config
 	InitGossiper()
 
-	//ottengo un numero di porta da so e ottengo il mio indirizzo
-	listener, err2 := net.Listen("tcp", ":0")
+	//recupero il mio indirizzo ip
+	conn, err2 := net.Dial("udp", "8.8.8.8:80")
 	if err2 != nil {
-		log.Fatalf("errore numero porta: %v", err)
+		panic(err2)
 	}
-	myPort := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
-	SetMyPort(myPort)
-	SetOwnUDPAddr(&net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: myPort})
-	SetOwnTCPAddr(&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: myPort})
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	err3 := conn.Close()
+	if err3 != nil {
+		return
+	}
+
+	ownIP := localAddr.IP
+	SetOwnUDPAddr(&net.UDPAddr{IP: ownIP, Port: GetMyPort()})
+	SetOwnTCPAddr(&net.TCPAddr{IP: ownIP, Port: GetMyPort()})
 
 	//contatto il registry
 	sdResponseString := ContactRegistry(GetOwnTCPAddr(), GetSDInfoString())

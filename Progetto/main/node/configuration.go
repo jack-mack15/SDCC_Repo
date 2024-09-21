@@ -95,38 +95,56 @@ func ReadConfigFile() int {
 		fmt.Println("ReadConfigFile()--> 3rrore durante la lettura del file:", err)
 	}
 
+	//lettura p
 	p, err = strconv.ParseFloat(data["p"], 64)
 	if err != nil {
 		fmt.Println("ReadConfigFile()--> errore nella conversione:", err)
 		return 0
 	}
-
+	//lettura my port
+	myPort, err = strconv.Atoi(data["my_port"])
+	if err != nil {
+		fmt.Println("ReadConfigFile()--> errore nella conversione my_port:", err)
+		return 0
+	}
+	//lettura defRTT
 	defRTT, err = strconv.Atoi(data["def_RTT"])
 	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore nella conversione:", err)
+		fmt.Println("ReadConfigFile()--> errore nella conversione defRTT:", err)
 		return 0
 	}
-	sdIP = data["sd_ip"]
-	sdPort, err = strconv.Atoi(data["sd_port"])
-	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore nella conversione:", err)
+	//lettura info service registry
+	//sdIP = data["sd_ip"]
+	sdPort = 8080
+	sdIP = os.Getenv("SERVER_ADDRESS")
+	if sdIP == "" {
+		fmt.Println("SERVER_ADDRESS not set")
 		return 0
 	}
+	//sdPort, err = strconv.Atoi(data["sd_port"])
+	//if err != nil {
+	//	fmt.Println("ReadConfigFile()--> errore nella conversione porta service:", err)
+	//	return 0
+	//}
+	//lettura max num
 	maxNum, err = strconv.Atoi(data["num"])
 	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore nella conversione:", err)
+		fmt.Println("ReadConfigFile()--> errore nella conversione max num:", err)
 		return 0
 	}
+	//lettura gossiptype
 	gossipType, err = strconv.Atoi(data["gossip_type"])
 	if err != nil {
 		fmt.Println("ReadConfigFile()--> errore nella conversione gossipType:", err)
 		return 0
 	}
+	//lettura b
 	b, err = strconv.Atoi(data["max_neighbour"])
 	if err != nil {
 		fmt.Println("ReadConfigFile()--> errore nella conversione max neighbour:", err)
 		return 0
 	}
+	//lettura f
 	f, err = strconv.Atoi(data["max_iter"])
 	if err != nil {
 		fmt.Println("ReadConfigFile()--> errore nella conversione di max iter:", err)
@@ -203,16 +221,12 @@ func checkParameters() bool {
 	}
 
 	//check port number
-	if sdPort != 8080 {
+	if sdPort != 8080 || myPort != 8080 {
 		fmt.Println("config file error: please use port 8080")
 		return false
 	}
 
 	return true
-}
-
-func SetMyPort(port int) {
-	myPort = port
 }
 func GetMyPort() int {
 	return myPort
