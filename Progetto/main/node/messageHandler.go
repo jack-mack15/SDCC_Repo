@@ -104,7 +104,7 @@ func handleNodeInfo(parts []string, remoteUDPAddr *net.UDPAddr) {
 		}
 
 		//aggiungo il nodo. se fosse già presente AddActiveNode() non lo aggiunge
-		_ = AddActiveNode(id, 1, remoteAddrStr, currUDPAddr, currTCPAddr)
+		AddActiveNode(id, 1, remoteAddrStr, currUDPAddr, currTCPAddr)
 	}
 }
 
@@ -159,7 +159,7 @@ func SendHeartbeat(singleNode Node, myId int, wg *sync.WaitGroup) {
 		defer conn.Close()
 
 		precResponseTime := singleNode.ResponseTime
-		if precResponseTime == -1 {
+		if precResponseTime <= 0 {
 			precResponseTime = GetDefRTT()
 		}
 
@@ -167,8 +167,7 @@ func SendHeartbeat(singleNode Node, myId int, wg *sync.WaitGroup) {
 
 		message := writeHeartBeatMessage(myId, GetOwnUDPAddr().Port)
 
-		//TODO cambiare questo timer
-		timerErr := conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(precResponseTime) * 3))
+		timerErr := conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(precResponseTime*getRttMult())))
 		if timerErr != nil {
 			return
 		}

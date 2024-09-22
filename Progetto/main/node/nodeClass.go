@@ -82,7 +82,7 @@ func CheckPresenceFaultNodesList(id int) bool {
 }
 
 // funzione che aggiunge un nodo alla lista. ritorna true se il nodo è stato aggiunto, false altrimenti
-func AddActiveNode(id int, state int, strAddr string, UDPAddr *net.UDPAddr, TCPAddr *net.TCPAddr) bool {
+func AddActiveNode(id int, state int, strAddr string, UDPAddr *net.UDPAddr, TCPAddr *net.TCPAddr) {
 	if !CheckPresenceActiveNodesList(id) {
 
 		currNode := Node{}
@@ -97,9 +97,8 @@ func AddActiveNode(id int, state int, strAddr string, UDPAddr *net.UDPAddr, TCPA
 		activeNodesMutex.Lock()
 		nodesList = append(nodesList, currNode)
 		activeNodesMutex.Unlock()
-		return true
 	}
-	return false
+	return
 }
 
 // funzione che sceglie i nodi da contattare in base al valore maxNum della configurazione

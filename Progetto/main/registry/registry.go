@@ -24,6 +24,7 @@ var messageList string
 
 func main() {
 
+	fmt.Println("listening")
 	listener, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		fmt.Println("errore durante l'ascolto:", err.Error())
@@ -33,6 +34,7 @@ func main() {
 
 	for {
 
+		fmt.Println("waiting node")
 		conn, err := listener.Accept()
 		if err != nil {
 			fmt.Println("errore nella connessione:", err.Error())

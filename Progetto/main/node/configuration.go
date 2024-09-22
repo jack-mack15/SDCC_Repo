@@ -28,6 +28,12 @@ var ownTCPAddress *net.TCPAddr
 // RTT default per nodi che non ho mai contattato
 var defRTT int
 
+// valore che indica quanti rtt aspettare che un nodo risponda
+var rtt_mult int
+
+// delay in secondi tra due serie di heartbeat
+var hb_delay int
+
 // indirizzo ip e porta del service discovery
 var sdIP string
 var sdPort int
@@ -113,19 +119,39 @@ func ReadConfigFile() int {
 		fmt.Println("ReadConfigFile()--> errore nella conversione defRTT:", err)
 		return 0
 	}
+	//lettura rtt_mult
+	rtt_mult, err = strconv.Atoi(data["rtt_mult"])
+	if err != nil {
+		fmt.Println("ReadConfigFile()--> errore nella conversione rtt_mult:", err)
+	}
+	//lettura hb_delay
+	hb_delay, err = strconv.Atoi(data["hb_delay"])
+	if err != nil {
+		fmt.Println("ReadConfigFile()--> errore nella conversione hb_delay:", err)
+	}
 	//lettura info service registry
 	//sdIP = data["sd_ip"]
 	sdPort = 8080
-	sdIP = os.Getenv("SERVER_ADDRESS")
+	tempIP := os.Getenv("SERVER_ADDRESS")
+	temps := strings.Split(tempIP, ":")
+
+	if len(temps) != 2 {
+		fmt.Println("Formato della stringa non valido")
+		return 0
+	}
+	// Assegna le sottostringhe a variabili
+	sdIP = temps[0]
+
 	if sdIP == "" {
 		fmt.Println("SERVER_ADDRESS not set")
 		return 0
 	}
-	//sdPort, err = strconv.Atoi(data["sd_port"])
-	//if err != nil {
-	//	fmt.Println("ReadConfigFile()--> errore nella conversione porta service:", err)
-	//	return 0
-	//}
+
+	sdPort, err = strconv.Atoi(data["sd_port"])
+	if err != nil {
+		fmt.Println("ReadConfigFile()--> errore nella conversione porta service:", err)
+		return 0
+	}
 	//lettura max num
 	maxNum, err = strconv.Atoi(data["num"])
 	if err != nil {
@@ -192,37 +218,25 @@ func checkParameters() bool {
 		return false
 	}
 
+	//check rtt_mult
+	if rtt_mult <= 0 {
+		fmt.Println("config file error: parameter rtt_mult must be a positive integer")
+		return false
+	}
+
+	//check hb_delay
+	if hb_delay <= 0 {
+		fmt.Println("config file error: parameter hb_delay must be a positive integer")
+	}
 	//check maxNum
 	if maxNum < 0 {
 		fmt.Println("config file error: MaxNum must be greater or equal to -1")
 		return false
 	}
 
-	//check address
-	count := strings.Count(sdIP, ".")
-	if count != 3 {
-		fmt.Println("config file error: address of service registry is incorrect")
-		return false
-	}
-	count++
-	parts := strings.SplitN(sdIP, ".", count)
-	count--
-	for i := 0; i < count; i++ {
-		elem, err := strconv.Atoi(parts[i])
-		if err != nil {
-			fmt.Println("checkParameters()--> errore nella conversione address:", err)
-			return false
-		}
-		//controllo molto grossolano
-		if elem > 256 || elem < 0 {
-			fmt.Println("config file error: please insert a correct address")
-			return false
-		}
-	}
-
 	//check port number
 	if sdPort != 8080 || myPort != 8080 {
-		fmt.Println("config file error: please use port 8080")
+		fmt.Println("config file error: please use port 8080 for registry and 8081 for node")
 		return false
 	}
 
@@ -256,9 +270,6 @@ func GetSDInfoString() string {
 	portStr := strconv.Itoa(sdPort)
 	return sdIP + ":" + portStr
 }
-func GetSDInfo() (string, int) {
-	return sdIP, sdPort
-}
 func SetMyId(id int) {
 	myId = id
 }
@@ -267,6 +278,12 @@ func GetMyId() int {
 }
 func GetDefRTT() int {
 	return defRTT
+}
+func getRttMult() int {
+	return rtt_mult
+}
+func getHBDelay() int {
+	return hb_delay
 }
 func GetMaxNeighbour() int {
 	return b

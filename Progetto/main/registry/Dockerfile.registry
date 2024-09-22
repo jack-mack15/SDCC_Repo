@@ -1,0 +1,14 @@
+# Usa l'immagine base ufficiale di Go
+FROM golang:1.22-alpine
+
+# Imposta la cartella di lavoro nel container
+WORKDIR /app
+
+# Copia i file del progetto nel container
+COPY . .
+
+# Compila il progetto e genera l'eseguibile
+RUN GO111MODULE=off go build -o registry .
+
+# Definisci il comando di avvio
+CMD ["./registry"]

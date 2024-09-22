@@ -41,18 +41,17 @@ func main() {
 	//contatto il registry
 	sdResponseString := ContactRegistry(GetOwnTCPAddr(), GetSDInfoString())
 
-	howMany := extractNodeList(sdResponseString)
-	if howMany == 0 {
-		//se sono il primo a contattarlo, ritento il contatto fino a che un altro nodo si collega
-		//utilizzo un tot massimo di tentativi
-		for count := 0; count < 5; count++ {
-			if howMany == 0 && count < 5 {
-				time.Sleep(5 * time.Second)
-				sdResponseString = ContactRegistry(GetOwnTCPAddr(), GetSDInfoString())
-				howMany = extractNodeList(sdResponseString)
-			} else {
-				break
-			}
+	retry := 0
+	howMany := 0
+	for {
+		howMany = extractNodeList(sdResponseString)
+		if howMany > 0 || retry >= 10 {
+			break
+		} else {
+			retry++
+			time.Sleep(5 * time.Second)
+
+			sdResponseString = ContactRegistry(GetOwnTCPAddr(), GetSDInfoString())
 		}
 	}
 
@@ -60,19 +59,13 @@ func main() {
 
 	go receiverHandler()
 
-	time.Sleep(5 * time.Second)
-
 	for {
 		//scelgo i nodi da contattare
 		nodesToContact := GetNodeToContact()
 
 		contactNode(nodesToContact)
 
-		//TODO eliminare questa sleep
-		if GetMyId() == 3 {
-			time.Sleep(8 * time.Second)
-		}
-		time.Sleep(4 * time.Second)
+		time.Sleep(time.Duration(getHBDelay()) * time.Second)
 
 		PrintAllNodeList()
 
@@ -86,12 +79,10 @@ func main() {
 
 		//TODO gestire meglio le chiusure dei canali?
 
-		//TODO riguardare il modo con cui si contatta il registry
-
-		//TODO in sendHeartBeat() nella deadline ci sta un "* 3" da modificare e mettere un valore confiigurabile da file
-
 		//TODO aggiungere anche anti entropy: ovvero seleziono randomicamente un solo nodo e gli dico quello che so
 		//se proprio serve eh
+
+		//TODO capire perchè cacchio chiamo il registry più di una volta quando non devo
 
 	}
 }
@@ -117,10 +108,6 @@ func receiverHandler() {
 
 		go HandleUDPMessage(conn, remoteUDPAddr, buffer[:n])
 
-		//TODO elimina questa parte
-		if GetMyId() == 3 {
-			time.Sleep(8 * time.Second)
-		}
 	}
 }
 
@@ -160,11 +147,9 @@ func extractNodeList(str string) int {
 			log.Printf("extractNodeList()---> errore risoluzione indirizzo remoto %s: %v", currStrAddr, err)
 		}
 
-		check := AddActiveNode(currId, 0, currStrAddr, currUDPAddr, currTCPAddr)
+		AddActiveNode(currId, 0, currStrAddr, currUDPAddr, currTCPAddr)
+		nodeCount++
 
-		if !check {
-			nodeCount++
-		}
 	}
 
 	return nodeCount
