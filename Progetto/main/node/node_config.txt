@@ -3,7 +3,7 @@
 #p=1.0, il valore corrente non altera il valore della distanza del nodo
 #p=0.5, media aritmetica tra valore precedente e corrente
 #valore compreso tra 0 e 1
-p=0.0
+p=0.5
 
 
 #RTT espresso in millisecondi di default per nodi di cui non si conosce la distanza
@@ -21,7 +21,7 @@ hb_delay=4
 #questo parametro non si riferisce ai parametri di gossip, ma alla diffusione degli heartbeat
 #num=0 indica che si prende la radice quadrata del numero di nodi che il nodo conosce
 #num=-1 indica che si contattano tutti i nodi che si conosce
-num=0
+num=1
 
 #tipologia di gossip scelta per la comunicazione dei nodi
 #gossipType=1 significa usare bimodal multicast

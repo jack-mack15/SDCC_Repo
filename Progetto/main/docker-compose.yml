@@ -38,6 +38,48 @@ services:
       SERVER_ADDRESS: registry:8080
     restart: unless-stopped
 
+  node3:
+    image: node
+    container_name: node3
+    networks:
+      - udp_net
+    ports:
+      - "8083:8081/udp"
+      - "8083:8081/tcp"
+    depends_on:
+      - registry
+    environment:
+      SERVER_ADDRESS: registry:8080
+    restart: unless-stopped
+
+  node4:
+    image: node
+    container_name: node4
+    networks:
+      - udp_net
+    ports:
+      - "8084:8081/udp"
+      - "8084:8081/tcp"
+    depends_on:
+      - registry
+    environment:
+      SERVER_ADDRESS: registry:8080
+    restart: unless-stopped
+
+  node5:
+    image: node
+    container_name: node5
+    networks:
+      - udp_net
+    ports:
+      - "8085:8081/udp"
+      - "8085:8081/tcp"
+    depends_on:
+      - registry
+    environment:
+      SERVER_ADDRESS: registry:8080
+    restart: unless-stopped
+
 networks:
   udp_net:
     driver: bridge
