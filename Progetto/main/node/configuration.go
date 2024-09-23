@@ -235,7 +235,7 @@ func checkParameters() bool {
 	}
 
 	//check port number
-	if sdPort != 8080 || myPort != 8080 {
+	if sdPort != 8080 || myPort != 8081 {
 		fmt.Println("config file error: please use port 8080 for registry and 8081 for node")
 		return false
 	}
