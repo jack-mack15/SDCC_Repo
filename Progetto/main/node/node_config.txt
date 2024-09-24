@@ -15,7 +15,7 @@ def_RTT=500
 rtt_mult=3
 
 #tempo in secondi tra due iterazioni di invio di heartbeat
-hb_delay=4
+hb_delay=8
 
 #numero di nodi che un singolo nodo può contattare ad ogni iterazione
 #questo parametro non si riferisce ai parametri di gossip, ma alla diffusione degli heartbeat

@@ -82,7 +82,7 @@ func main() {
 		//TODO aggiungere anche anti entropy: ovvero seleziono randomicamente un solo nodo e gli dico quello che so
 		//se proprio serve eh
 
-		//TODO capire perchè cacchio chiamo il registry più di una volta quando non devo
+		//TODO sistema il fatto che se un nodo mi invia heartbeat, io devo aggiornargli lo stato, per il momento non lo fa
 
 	}
 }

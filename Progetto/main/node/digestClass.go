@@ -74,7 +74,7 @@ func CompareAndAddOfflineNodes(remoteDigest string) []int {
 	}
 
 	for i := 0; i < len(remoteArray); i++ {
-		if !CheckPresenceActiveNodesList(remoteArray[i]) {
+		if !CheckPresenceFaultNodesList(remoteArray[i]) {
 			didntKnow = append(didntKnow, remoteArray[i])
 			AddOfflineNode(remoteArray[i])
 		}
@@ -89,6 +89,6 @@ func UpdateOfflineNodes(idArray []int) {
 		if !CheckPresenceActiveNodesList(idArray[i]) {
 			AddOfflineNode(idArray[i])
 		}
-		UpdateNodeState(idArray[i])
+		UpdateNodeStateToFault(idArray[i])
 	}
 }

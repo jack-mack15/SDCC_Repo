@@ -29,29 +29,23 @@ func HandleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []by
 	if code == "000" || code == "111" {
 		//GESTIONE SEMPLICE HEARTBEAT
 
-		//TODO rimuovere questo blocco di codice che simula un ritardo
-		//max := 200
-		//randomNumber := rand.Intn(max) + 100
-		//time.Sleep(time.Duration(randomNumber) * time.Millisecond)
-		//if randomNumber > 300 {
-		//	os.Exit(0)
-		//}
-		//qui finisce il blocco in questione
-
 		//invio risposta
 		_, err := conn.WriteToUDP([]byte("hello\n"), remoteUDPAddr)
 		if err != nil {
 			fmt.Println("handleUDPMessage()--> errore invio risposta:", err)
 			return
 		}
+
+		id := getIdFromMessage(parts[1])
+
+		fmt.Printf("[PEER %d] received heartbeat from: %d, correctly replied\n", GetMyId(), id)
+
 		//gestisco le info sul nodo mittente
 		handleNodeInfo(parts, remoteUDPAddr)
 
 		if code == "111" {
 
 			//Heatbeat con digest del multicast bimodal
-			id := getIdFromMessage(parts[1])
-
 			gossipMessage := parts[3]
 			go gossiper.HandleGossipMessage(id, gossipMessage)
 		}
@@ -190,7 +184,7 @@ func SendHeartbeat(singleNode Node, myId int, wg *sync.WaitGroup) {
 		if err != nil {
 			var netErr net.Error
 			if errors.As(err, &netErr) && netErr.Timeout() {
-				fmt.Printf("[PEER %d] time out expired for node: %d\n\n", GetMyId(), singleNode.ID)
+				fmt.Printf("[PEER %d] time out expired for node: %d\n", GetMyId(), singleNode.ID)
 
 				//invoco il gossiper poichè ho scoperto un nodo fault
 				go gossiper.Gossip(singleNode.ID)

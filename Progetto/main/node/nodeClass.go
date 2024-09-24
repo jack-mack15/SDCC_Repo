@@ -195,7 +195,12 @@ func UpdateNodeDistance(id int, state int, responseTime int, distance int) {
 		if nodesList[i].ID == id {
 			nodesList[i].State = state
 			p := GetP()
-			nodesList[i].Distance = int(p*float64(nodesList[i].Distance) + (1-p)*float64(distance))
+
+			if nodesList[i].Distance <= 0 {
+				nodesList[i].Distance = distance
+			} else {
+				nodesList[i].Distance = int(p*float64(nodesList[i].Distance) + (1-p)*float64(distance))
+			}
 			nodesList[i].ResponseTime = responseTime
 			break
 		}
@@ -205,7 +210,7 @@ func UpdateNodeDistance(id int, state int, responseTime int, distance int) {
 }
 
 // funzione che segnala il nodo come fallito e lo rimuove dalla lista
-func UpdateNodeState(id int) {
+func UpdateNodeStateToFault(id int) {
 	activeNodesMutex.Lock()
 	faultNodesMutex.Lock()
 
@@ -246,7 +251,7 @@ func getLenght() int {
 func PrintAllNodeList() {
 	activeNodesMutex.Lock()
 
-	fmt.Printf("[PEER %d] active nodes\n", GetMyId())
+	fmt.Printf("\n[PEER %d] active nodes\n", GetMyId())
 	for i := 0; i < len(nodesList); i++ {
 		fmt.Printf("nodo id: %d  stato: %d  distanza: %d \n", nodesList[i].ID, nodesList[i].State, nodesList[i].Distance)
 	}
@@ -262,7 +267,7 @@ func PrintAllNodeList() {
 	}
 
 	if len(faultNodesList) == 0 {
-		fmt.Printf("None\n\n\n")
+		fmt.Printf("None")
 	}
 
 	fmt.Printf("\n\n")
