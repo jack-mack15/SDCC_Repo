@@ -15,6 +15,7 @@ services:
     container_name: node1
     networks:
       - udp_net
+    privileged: true
     ports:
       - "8081:8081/udp"
       - "8081:8081/tcp"
@@ -29,6 +30,7 @@ services:
     container_name: node2
     networks:
       - udp_net
+    privileged: true
     ports:
       - "8082:8081/udp"
       - "8082:8081/tcp"
@@ -43,6 +45,7 @@ services:
     container_name: node3
     networks:
       - udp_net
+    privileged: true
     ports:
       - "8083:8081/udp"
       - "8083:8081/tcp"
@@ -57,6 +60,7 @@ services:
     container_name: node4
     networks:
       - udp_net
+    privileged: true
     ports:
       - "8084:8081/udp"
       - "8084:8081/tcp"
@@ -71,6 +75,7 @@ services:
     container_name: node5
     networks:
       - udp_net
+    privileged: true
     ports:
       - "8085:8081/udp"
       - "8085:8081/tcp"

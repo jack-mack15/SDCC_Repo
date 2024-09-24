@@ -163,6 +163,8 @@ func SendHeartbeat(singleNode Node, myId int, wg *sync.WaitGroup) {
 			precResponseTime = GetDefRTT()
 		}
 
+		fmt.Printf("[PEER %d] sending heartbeat to: %d\n", GetMyId(), singleNode.ID)
+
 		startTime := time.Now()
 
 		message := writeHeartBeatMessage(myId, GetOwnUDPAddr().Port)
@@ -196,6 +198,8 @@ func SendHeartbeat(singleNode Node, myId int, wg *sync.WaitGroup) {
 				return
 			}
 		}
+
+		fmt.Printf("[PEER %d] received heartbeat's response from: %d\n", GetMyId(), singleNode.ID)
 
 		currDistance := calculateDistance(responseTime)
 		UpdateNodeDistance(singleNode.ID, 1, int(responseTime.Milliseconds()), currDistance)

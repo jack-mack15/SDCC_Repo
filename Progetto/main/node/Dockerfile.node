@@ -4,6 +4,9 @@ FROM golang:1.22-alpine
 # Imposta la cartella di lavoro nel container
 WORKDIR /app
 
+# Installa netem
+RUN apk add --no-cache iproute2
+
 # Copia i file del progetto nel container
 COPY . .
 
