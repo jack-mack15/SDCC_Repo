@@ -130,6 +130,9 @@ func GetNodeToContact() []Node {
 		//genero dei numeri casuali tutti differenti, corrispondono alla scelta di nodi da contattare
 		i := 0
 		for i < howManyToContact {
+			if i >= lenght {
+				break
+			}
 			random := rand.Intn(lenght)
 			_, ok := elemToContact[random]
 			if !ok && nodesList[random].State != 2 {
