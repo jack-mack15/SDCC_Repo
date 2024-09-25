@@ -86,9 +86,8 @@ func CompareAndAddOfflineNodes(remoteDigest string) []int {
 // funzione che viene attivata da CompareAndAddOfflineNodes se ci sono nodi falliti di cui non sono a conoscenza
 func UpdateOfflineNodes(idArray []int) {
 	for i := 0; i < len(idArray); i++ {
-		if !CheckPresenceActiveNodesList(idArray[i]) {
-			AddOfflineNode(idArray[i])
-		}
+		
+		AddOfflineNode(idArray[i])
 		UpdateNodeStateToFault(idArray[i])
 	}
 }
