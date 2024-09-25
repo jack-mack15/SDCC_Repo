@@ -70,7 +70,7 @@ func CompareAndAddOfflineNodes(remoteDigest string) []int {
 	//condizione verificata se non conosco nessuno
 	if len(ownArray) == 0 {
 		UpdateOfflineNodes(remoteArray)
-		return didntKnow
+		return remoteArray
 	}
 
 	for i := 0; i < len(remoteArray); i++ {
