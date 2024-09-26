@@ -44,6 +44,12 @@ var maxNum int
 // variabile che indica che tipologia di gossip usare
 var gossipType int
 
+// numero massimo di retry prima di segnare un nodo fault
+var max_retry int
+
+// bool che stabilisce se usare la funzione max nell'aggiornamento del tempo di risposta
+var using_max bool
+
 // massimo numero di vicini a cui il nodo corrente inoltra un update
 var b int
 
@@ -176,6 +182,20 @@ func ReadConfigFile() int {
 		fmt.Println("ReadConfigFile()--> errore nella conversione di max iter:", err)
 		return 0
 	}
+	//lettura max_retry
+	max_retry, err = strconv.Atoi(data["max_retry"])
+	if err != nil {
+		fmt.Println("ReadConfigFile()--> errore nella conversione max_retry:", err)
+	}
+	//lettura using max
+	max_fun := data["using_max"]
+	if max_fun == "" {
+		fmt.Println("ReadConfigFile()--> errore using_max not set")
+	} else if max_fun == "1" {
+		using_max = true
+	} else {
+		using_max = false
+	}
 
 	check := checkParameters()
 
@@ -240,6 +260,12 @@ func checkParameters() bool {
 		return false
 	}
 
+	//check max_retry
+	if max_retry <= 0 {
+		fmt.Println("config file error: MaxRetry must be an integer bigger than 0")
+		return false
+	}
+
 	return true
 }
 func GetMyPort() int {
@@ -290,4 +316,10 @@ func GetMaxNeighbour() int {
 }
 func GetMaxIter() int {
 	return f
+}
+func getMaxRetry() int {
+	return max_retry
+}
+func getUsingMax() bool {
+	return using_max
 }

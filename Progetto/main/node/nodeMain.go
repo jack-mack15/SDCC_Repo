@@ -56,8 +56,12 @@ func main() {
 	}
 
 	//FASE ATTIVA
-
+	initLogFile()
+	//sleep per dare tempo a netem di assegnare i ritardi o tirare su la rete
+	time.Sleep(5 * time.Second)
 	go receiverHandler()
+
+	lazzarusTry = 2
 
 	for {
 		//scelgo i nodi da contattare
@@ -69,6 +73,11 @@ func main() {
 
 		PrintAllNodeList()
 
+		activeNodeLenght := getLenght()
+		if activeNodeLenght == 0 {
+			tryLazzarus()
+		}
+
 		//TODO controllare tutta la robba da eliminare
 		//in receiverHanlder()
 		//in HanldeUDP
@@ -79,10 +88,11 @@ func main() {
 
 		//TODO gestire meglio le chiusure dei canali?
 
-		//TODO aggiungere anche anti entropy: ovvero seleziono randomicamente un solo nodo e gli dico quello che so
-		//se proprio serve eh
-
 		//TODO sistema il fatto che se un nodo mi invia heartbeat, io devo aggiornargli lo stato, per il momento non lo fa
+
+		//TODO sistemare il fatto che se mi rifaccio vivo potrebbero esserci altrin nodi che continuano a professarmi morto
+
+		//TODO implementare un file log su cui scrive un nodo tutti quelli che sa vivi o morti
 
 	}
 }

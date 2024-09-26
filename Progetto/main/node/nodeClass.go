@@ -5,7 +5,9 @@ import (
 	"math"
 	"math/rand"
 	"net"
+	"os"
 	"sync"
+	"time"
 )
 
 //file che mantiene traccia della lista di nodi attivi della rete
@@ -20,12 +22,14 @@ type Node struct {
 	TCPAddr *net.TCPAddr
 	//indirizzo per identificare nodo, tipo string
 	StrAddr string
-	//State indica lo stato in cui si trova il nodo: 0 non conosciuto, 1 attivo, 2 sospettato, -1 disattivo
+	//State indica lo stato in cui si trova il nodo: 0 non conosciuto, 1 attivo, 2 disattivato
 	State int
 	//distanza del nodo, -1 indica che non è conosciuto
 	Distance int
 	//tempo risposta del nodo all'ultimo messaggio, -1 indica che non è conosciuto
 	ResponseTime int
+	//numero di retry restanti prima di segnare il nodo fault
+	Retry int
 }
 
 var nodesList []Node
@@ -35,6 +39,8 @@ var faultNodesList []Node
 var activeNodesMutex sync.Mutex
 
 var faultNodesMutex sync.Mutex
+
+var lazzarusTry int
 
 // funzione che restituisce l'indirizzo UDP di un nodo della lista
 func getSelectedUDPAddress(id int) *net.UDPAddr {
@@ -93,6 +99,7 @@ func AddActiveNode(id int, state int, strAddr string, UDPAddr *net.UDPAddr, TCPA
 		currNode.State = state
 		currNode.Distance = -1
 		currNode.ResponseTime = -1
+		currNode.Retry = getMaxRetry()
 
 		activeNodesMutex.Lock()
 		nodesList = append(nodesList, currNode)
@@ -197,6 +204,7 @@ func UpdateNodeDistance(id int, state int, responseTime int, distance int) {
 	for i := 0; i < len(nodesList); i++ {
 		if nodesList[i].ID == id {
 			nodesList[i].State = state
+			nodesList[i].Retry = getMaxRetry()
 			p := GetP()
 
 			if nodesList[i].Distance <= 0 {
@@ -204,7 +212,53 @@ func UpdateNodeDistance(id int, state int, responseTime int, distance int) {
 			} else {
 				nodesList[i].Distance = int(p*float64(nodesList[i].Distance) + (1-p)*float64(distance))
 			}
-			nodesList[i].ResponseTime = responseTime
+			if getUsingMax() {
+				nodesList[i].ResponseTime = max(responseTime, nodesList[i].ResponseTime)
+			} else {
+				nodesList[i].ResponseTime = responseTime
+			}
+			break
+		}
+	}
+
+	activeNodesMutex.Unlock()
+}
+
+// funzione che va a decrementare il numero di retry dopo un timeout
+// se il numero di retry arriva a 0 si elimina tale nodo
+// ritorna false ha 0 retry
+// ritorna true se ha un numero di retry maggiori di 0
+func decrementNumberOfRetry(id int) bool {
+	activeNodesMutex.Lock()
+
+	for i := 0; i < len(nodesList); i++ {
+		if nodesList[i].ID == id {
+			nodesList[i].Retry--
+			if nodesList[i].Retry <= 0 {
+				activeNodesMutex.Unlock()
+				fmt.Printf("[PEER %d] time out expired for node: %d no retry left. Fault node!\n", GetMyId(), id)
+				UpdateNodeStateToFault(id)
+				return false
+			}
+			fmt.Printf("[PEER %d] time out expired for node: %d retry left: %d\n", GetMyId(), id, nodesList[i].Retry)
+			break
+		}
+
+	}
+
+	activeNodesMutex.Unlock()
+	return true
+}
+
+// funzione che reimposta al massimo il numero di retry di un nodo e setta lo stato ad attivo
+// chiamata dopo aver ricevuto un heartbeat da un nodo
+func resetRetryNumber(id int) {
+	activeNodesMutex.Lock()
+
+	for i := 0; i < len(nodesList); i++ {
+		if nodesList[i].ID == id {
+			nodesList[i].Retry = getMaxRetry()
+			nodesList[i].State = 1
 			break
 		}
 	}
@@ -239,7 +293,13 @@ func reviveFaultNode(faultId int) {
 
 	for i := 0; i < len(faultNodesList); i++ {
 		if faultNodesList[i].ID == faultId {
+			activeNodesMutex.Lock()
+			nodesList = append(nodesList, faultNodesList[i])
+			activeNodesMutex.Unlock()
+
 			faultNodesList = append(faultNodesList[:i], faultNodesList[i+1:]...)
+
+			UpdateNodeDistance(faultId, 1, -1, -1)
 		}
 	}
 
@@ -249,6 +309,38 @@ func reviveFaultNode(faultId int) {
 // funzione che ritorna il numero di nodi attivi
 func getLenght() int {
 	return len(nodesList)
+}
+
+// funzione che si attiva qual'ora la lista dei nodi attivi fosse vuota e la lista dei nodi fault piena
+// si può verificare questa situazione quando si impostano in modo non appropriato le variabili del file
+// di configurazione. Tenta di far rivivere un nodo
+func tryLazzarus() {
+
+	if lazzarusTry == 0 {
+		os.Exit(-1)
+	}
+
+	time.Sleep(8 * time.Second)
+
+	activeNodesMutex.Lock()
+	faultNodesMutex.Lock()
+
+	if len(nodesList) == 0 && len(faultNodesList) > 0 {
+		fmt.Printf("[PEER %d] TRYING LAZZARUS OPERATION\n", GetMyId())
+		faults := len(faultNodesList)
+
+		activeNodesMutex.Unlock()
+		faultNodesMutex.Unlock()
+
+		for i := faults - 1; i >= 0; i-- {
+			reviveFaultNode(faultNodesList[i].ID)
+		}
+		lazzarusTry--
+		return
+	}
+
+	activeNodesMutex.Unlock()
+	faultNodesMutex.Unlock()
 }
 
 func PrintAllNodeList() {

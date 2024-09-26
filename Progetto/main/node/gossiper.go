@@ -22,8 +22,11 @@ type BimodalGossiper struct{}
 // invio l'update a tutti i nodi che conosco
 func (i BimodalGossiper) Gossip(id int) {
 
-	//cambio dello stato del nodo nella lista di nodi
-	UpdateNodeStateToFault(id)
+	//decremento il numero di retry
+	if decrementNumberOfRetry(id) {
+		return
+	}
+
 	//aggiungo l'id del nodo fault al digest
 	AddOfflineNode(id)
 
@@ -65,7 +68,7 @@ func (i BimodalGossiper) HandleGossipMessage(idSender int, message string) {
 
 // funzione che gestisce il caso in cui un nodo fault si ripresenta nella rete
 func (i BimodalGossiper) ReviveNode(id int) {
-	fmt.Printf("[PEER %d] BM lazzarus node: %d\n", GetMyId(), id)
+	fmt.Printf("[PEER %d] BM LAZZARUS node: %d\n", GetMyId(), id)
 	removeOfflineNode(id)
 }
 
@@ -117,8 +120,10 @@ func (e BlindRumorGossiper) HandleGossipMessage(idSender int, message string) {
 // funzione che va a diffondere un update
 func (e BlindRumorGossiper) Gossip(faultId int) {
 
-	//aggiorno stato del nodo nella lista
-	UpdateNodeStateToFault(faultId)
+	//vado a decrementare il numero di retry
+	if decrementNumberOfRetry(faultId) {
+		return
+	}
 
 	//aggiungo struct per faultId se non esistesse
 	addFaultNodeStruct(faultId)
@@ -149,45 +154,8 @@ func (e BlindRumorGossiper) Gossip(faultId int) {
 
 // funzione che gestisce il caso in cui un nodo fault si ripresenta nella rete
 func (e BlindRumorGossiper) ReviveNode(faultId int) {
-	fmt.Printf("[PEER %d] BCRM, lazzarus node: %d\n", GetMyId(), faultId)
+	fmt.Printf("[PEER %d] BCRM, LAZZARUS node: %d\n", GetMyId(), faultId)
 	removeUpdate(faultId)
-}
-
-//ANTI ENTROPY GOSSIP
-
-// struttura di anti entropy
-type AntiEntropyGossiper struct{}
-
-// funzione che gestisce gli update ricevuti da un nodo
-func (e AntiEntropyGossiper) HandleGossipMessage(idSender int, message string) {
-
-	fmt.Printf("Anti Entropy Handler, ricevuto nodo sus: %s\n", message)
-	idArray := extractIdArrayFromMessage(message)
-
-	if len(idArray) == 0 {
-		return
-	} else {
-		//nodi fault di cui non ero a conoscenza
-		idFaultNodes := CompareAndAddOfflineNodes(message)
-
-		//aggiorno lo stato dei nodi in nodeClass
-		for i := 0; i < len(idFaultNodes); i++ {
-			UpdateNodeStateToFault(idFaultNodes[i])
-		}
-	}
-
-	fmt.Println("Anti Entropy Handler, ho terminato")
-}
-
-// funzione che non fa nulla
-func (e AntiEntropyGossiper) Gossip(faultId int) {
-
-	//TODO implementare un ciclo for infinito con selezione random e
-}
-
-// funzione che rimuove un nodo fault che si è ripresentato nella rete
-func (e AntiEntropyGossiper) ReviveNode(id int) {
-	removeOfflineNode(id)
 }
 
 var gossiper Gossiper

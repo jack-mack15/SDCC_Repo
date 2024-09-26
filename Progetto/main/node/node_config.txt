@@ -37,6 +37,15 @@ max_neighbour=2
 #si B che F vengono opportunamente gestiti per evitare errori
 max_iter=2
 
+#parametro che indica quanti retry massimi bisogna effettuare prima di assumere un nodo sia fault
+#un intero maggiore di 0
+max_retry=1
+
+#parametro che stabilisce se usare il max tra tempo di risposta attuale e quello precedente
+#tempo di risposta di un nodo contattato
+#posto a 1 indica che si usa il max, 0 non si usa il max
+using_max=1
+
 #porta del registry, deve combaciare con quella specificata nel docker compose file
 sd_port=8080
 

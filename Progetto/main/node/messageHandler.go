@@ -99,6 +99,9 @@ func handleNodeInfo(parts []string, remoteUDPAddr *net.UDPAddr) {
 
 		//aggiungo il nodo. se fosse già presente AddActiveNode() non lo aggiunge
 		AddActiveNode(id, 1, remoteAddrStr, currUDPAddr, currTCPAddr)
+	} else {
+		//aggiorno numero di retry e stato
+		resetRetryNumber(id)
 	}
 }
 
@@ -184,7 +187,6 @@ func SendHeartbeat(singleNode Node, myId int, wg *sync.WaitGroup) {
 		if err != nil {
 			var netErr net.Error
 			if errors.As(err, &netErr) && netErr.Timeout() {
-				fmt.Printf("[PEER %d] time out expired for node: %d\n", GetMyId(), singleNode.ID)
 
 				//invoco il gossiper poichè ho scoperto un nodo fault
 				go gossiper.Gossip(singleNode.ID)
