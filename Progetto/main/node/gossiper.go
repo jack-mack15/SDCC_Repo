@@ -28,16 +28,16 @@ func (i BimodalGossiper) Gossip(id int) {
 	}
 
 	//aggiungo l'id del nodo fault al digest
-	AddOfflineNode(id)
+	addOfflineNode(id)
 
 	//recupero id di tutti i nodi da contattare in multicast
-	idMap := GetNodesMulticast()
+	idMap := getNodesMulticast()
 
-	gossipMessage := writeMulticastGossipMessage(GetMyId(), GetMyPort(), strconv.Itoa(id))
+	gossipMessage := writeMulticastGossipMessage(getMyId(), getMyPort(), strconv.Itoa(id))
 
 	for idNode, value := range idMap {
-		fmt.Printf("[PEER %d] BM, gossip message send to: %d, fault node: %d\n", GetMyId(), idNode, id)
-		go SendMulticastMessage(gossipMessage, value)
+		fmt.Printf("[PEER %d] BM, gossip message send to: %d, fault node: %d\n", getMyId(), idNode, id)
+		go sendMulticastMessage(gossipMessage, value)
 	}
 }
 
@@ -45,30 +45,30 @@ func (i BimodalGossiper) Gossip(id int) {
 // quando ottengo il digest di un heartbeat
 func (i BimodalGossiper) HandleGossipMessage(idSender int, message string) {
 
-	fmt.Printf("[PEER %d] BM, gossip message received from: %d, fault node: %s\n", GetMyId(), idSender, message)
+	fmt.Printf("[PEER %d] BM, gossip message received from: %d, fault node: %s\n", getMyId(), idSender, message)
 	idArray := extractIdArrayFromMessage(message)
 
 	if len(idArray) == 0 {
-		fmt.Printf("[PEER %d] BM, no digest from sender: %d\n", GetMyId(), idSender)
+		fmt.Printf("[PEER %d] BM, no digest from sender: %d\n", getMyId(), idSender)
 		return
 	} else {
 		//nodi fault di cui non ero a conoscenza
-		idFaultNodes := CompareAndAddOfflineNodes(message)
+		idFaultNodes := compareAndAddOfflineNodes(message)
 		if len(idFaultNodes) == 0 {
-			fmt.Printf("[PEER %d] BM, faults from sender: %d, already known\n", GetMyId(), idSender)
+			fmt.Printf("[PEER %d] BM, faults from sender: %d, already known\n", getMyId(), idSender)
 			return
 		}
-		fmt.Printf("[PEER %d] BM, from sender: %d, discovered this faults: %v\n", GetMyId(), idSender, idFaultNodes)
+		fmt.Printf("[PEER %d] BM, from sender: %d, discovered this faults: %v\n", getMyId(), idSender, idFaultNodes)
 		//aggiorno lo stato dei nodi in nodeClass
 		for i := 0; i < len(idFaultNodes); i++ {
-			UpdateNodeStateToFault(idFaultNodes[i])
+			updateNodeStateToFault(idFaultNodes[i])
 		}
 	}
 }
 
 // funzione che gestisce il caso in cui un nodo fault si ripresenta nella rete
 func (i BimodalGossiper) ReviveNode(id int) {
-	fmt.Printf("[PEER %d] BM LAZZARUS node: %d\n", GetMyId(), id)
+	fmt.Printf("[PEER %d] BM LAZZARUS node: %d\n", getMyId(), id)
 	removeOfflineNode(id)
 }
 
@@ -80,7 +80,7 @@ type BlindRumorGossiper struct{}
 // funzione che gestisce un update ricevuto da un altro nodo
 func (e BlindRumorGossiper) HandleGossipMessage(idSender int, message string) {
 
-	fmt.Printf("[PEER %d] BCRM, received gossip message from: %d fault node: %s\n", GetMyId(), idSender, message)
+	fmt.Printf("[PEER %d] BCRM, received gossip message from: %d fault node: %s\n", getMyId(), idSender, message)
 	//message deve contenere sempre un solo id fault
 	updateIdArray := extractIdArrayFromMessage(message)
 	faultId := updateIdArray[0]
@@ -89,10 +89,10 @@ func (e BlindRumorGossiper) HandleGossipMessage(idSender int, message string) {
 		return
 	}
 
-	if CheckPresenceFaultNodesList(faultId) {
+	if checkPresenceFaultNodesList(faultId) {
 		//blocco di codice se già ero a conoscenza del fault
 		//rimuovo idSender dalla lista di nodi da notificare se fosse presente
-		fmt.Printf("[PEER %d] BCRM, gossip from: %d about fault node: %s already known\n", GetMyId(), idSender, message)
+		fmt.Printf("[PEER %d] BCRM, gossip from: %d about fault node: %s already known\n", getMyId(), idSender, message)
 
 		removeNodeToNotify(idSender, faultId)
 
@@ -101,9 +101,9 @@ func (e BlindRumorGossiper) HandleGossipMessage(idSender int, message string) {
 
 	} else {
 		//blocco di codice se non ero a conoscenza del fault
-		fmt.Printf("[PEER %d] BCRM, gossip from: %d about fault node: %s added to my knowledge\n", GetMyId(), idSender, message)
+		fmt.Printf("[PEER %d] BCRM, gossip from: %d about fault node: %s added to my knowledge\n", getMyId(), idSender, message)
 		//aggiorno stato del nodo nella lista
-		UpdateNodeStateToFault(faultId)
+		updateNodeStateToFault(faultId)
 
 		//aggiungere struct per faultId
 		addFaultNodeStruct(faultId)
@@ -139,14 +139,13 @@ func (e BlindRumorGossiper) Gossip(faultId int) {
 			removeNodeToNotify(selectedNodes[i], faultId)
 			//invio del gossipmessage
 			fmt.Printf("[PEER %d] BCRM, sending gossip message to: %d about fault node: %d\n",
-				GetMyId(), selectedNodes[i], faultId)
+				getMyId(), selectedNodes[i], faultId)
 			go sendBlindCounterGossipMessage(selectedNodes[i], faultId)
 		}
 
-		fmt.Printf("[PEER %d] BCRM, gossip iteration done\n", GetMyId())
+		fmt.Printf("[PEER %d] BCRM, gossip iteration done\n", getMyId())
 
-		//TODO rimuovere la sleep?
-		time.Sleep(2 * time.Second)
+		time.Sleep(time.Duration(getGossipInterval()) * time.Millisecond)
 
 		decrementNumOfUpdateForId(faultId)
 	}
@@ -154,14 +153,14 @@ func (e BlindRumorGossiper) Gossip(faultId int) {
 
 // funzione che gestisce il caso in cui un nodo fault si ripresenta nella rete
 func (e BlindRumorGossiper) ReviveNode(faultId int) {
-	fmt.Printf("[PEER %d] BCRM, LAZZARUS node: %d\n", GetMyId(), faultId)
+	fmt.Printf("[PEER %d] BCRM, LAZZARUS node: %d\n", getMyId(), faultId)
 	removeUpdate(faultId)
 }
 
 var gossiper Gossiper
 
 func InitGossiper() {
-	if GetGossipType() == 2 {
+	if getGossipType() == 2 {
 		gossiper = &BlindRumorGossiper{}
 	} else {
 		gossiper = &BimodalGossiper{}

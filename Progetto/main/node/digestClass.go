@@ -12,7 +12,7 @@ var offlineNodes []int
 var offlineNodesMutex sync.Mutex
 
 // funzione che aggiunge un nodo alla lista e aggiorna il digest
-func AddOfflineNode(id int) {
+func addOfflineNode(id int) {
 	offlineNodesMutex.Lock()
 
 	i := 0
@@ -31,7 +31,7 @@ func AddOfflineNode(id int) {
 }
 
 // funzione che ritorna il digest da allegare ad un messaggio
-func GetDigest() string {
+func getDigest() string {
 	offlineNodesMutex.Lock()
 
 	digest := ""
@@ -60,34 +60,34 @@ func removeOfflineNode(id int) {
 
 // funzione che riceve un digest di un altro nodo e lo confronta con il proprio digest
 // ritorna una lista di id di nodi fault di cui non ero a conoscenza
-func CompareAndAddOfflineNodes(remoteDigest string) []int {
+func compareAndAddOfflineNodes(remoteDigest string) []int {
 
-	ownArray := extractIdArrayFromMessage(GetDigest())
+	ownArray := extractIdArrayFromMessage(getDigest())
 	remoteArray := extractIdArrayFromMessage(remoteDigest)
 
 	var didntKnow []int
 
 	//condizione verificata se non conosco nessuno
 	if len(ownArray) == 0 {
-		UpdateOfflineNodes(remoteArray)
+		updateOfflineNodes(remoteArray)
 		return remoteArray
 	}
 
 	for i := 0; i < len(remoteArray); i++ {
-		if !CheckPresenceFaultNodesList(remoteArray[i]) {
+		if !checkPresenceFaultNodesList(remoteArray[i]) {
 			didntKnow = append(didntKnow, remoteArray[i])
-			AddOfflineNode(remoteArray[i])
+			addOfflineNode(remoteArray[i])
 		}
 	}
 
 	return didntKnow
 }
 
-// funzione che viene attivata da CompareAndAddOfflineNodes se ci sono nodi falliti di cui non sono a conoscenza
-func UpdateOfflineNodes(idArray []int) {
+// funzione che viene attivata da compareAndAddOfflineNodes se ci sono nodi falliti di cui non sono a conoscenza
+func updateOfflineNodes(idArray []int) {
 	for i := 0; i < len(idArray); i++ {
-		
-		AddOfflineNode(idArray[i])
-		UpdateNodeStateToFault(idArray[i])
+
+		addOfflineNode(idArray[i])
+		updateNodeStateToFault(idArray[i])
 	}
 }

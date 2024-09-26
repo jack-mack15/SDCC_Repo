@@ -13,15 +13,11 @@ import (
 //file che mantiene traccia della lista di nodi attivi della rete
 
 // struttura singolo nodo
-type Node struct {
+type node struct {
 	//ID del nodo assegnato dal service registry
 	ID int
 	//indirizzo per identificare nodo, tipo puntatore a UDPAddr
 	UDPAddr *net.UDPAddr
-	//indirizzo per identificare nodo, tipo puntatore a TCPAddr
-	TCPAddr *net.TCPAddr
-	//indirizzo per identificare nodo, tipo string
-	StrAddr string
 	//State indica lo stato in cui si trova il nodo: 0 non conosciuto, 1 attivo, 2 disattivato
 	State int
 	//distanza del nodo, -1 indica che non è conosciuto
@@ -32,9 +28,9 @@ type Node struct {
 	Retry int
 }
 
-var nodesList []Node
+var nodesList []node
 
-var faultNodesList []Node
+var faultNodesList []node
 
 var activeNodesMutex sync.Mutex
 
@@ -58,7 +54,7 @@ func getSelectedUDPAddress(id int) *net.UDPAddr {
 }
 
 // funzione che verifica se un nodo è presente. ritorna true se è presente, false altrimenti
-func CheckPresenceActiveNodesList(id int) bool {
+func checkPresenceActiveNodesList(id int) bool {
 	activeNodesMutex.Lock()
 
 	for i := 0; i < len(nodesList); i++ {
@@ -73,7 +69,7 @@ func CheckPresenceActiveNodesList(id int) bool {
 }
 
 // funzione che verifica se un nodo è presente nella lista dei nodi fault. ritorna true se è presente
-func CheckPresenceFaultNodesList(id int) bool {
+func checkPresenceFaultNodesList(id int) bool {
 	faultNodesMutex.Lock()
 
 	for i := 0; i < len(faultNodesList); i++ {
@@ -88,14 +84,12 @@ func CheckPresenceFaultNodesList(id int) bool {
 }
 
 // funzione che aggiunge un nodo alla lista. ritorna true se il nodo è stato aggiunto, false altrimenti
-func AddActiveNode(id int, state int, strAddr string, UDPAddr *net.UDPAddr, TCPAddr *net.TCPAddr) {
-	if !CheckPresenceActiveNodesList(id) {
+func addActiveNode(id int, state int, UDPAddr *net.UDPAddr) {
+	if !checkPresenceActiveNodesList(id) {
 
-		currNode := Node{}
+		currNode := node{}
 		currNode.ID = id
-		currNode.StrAddr = strAddr
 		currNode.UDPAddr = UDPAddr
-		currNode.TCPAddr = TCPAddr
 		currNode.State = state
 		currNode.Distance = -1
 		currNode.ResponseTime = -1
@@ -108,34 +102,53 @@ func AddActiveNode(id int, state int, strAddr string, UDPAddr *net.UDPAddr, TCPA
 	return
 }
 
-// funzione che sceglie i nodi da contattare in base al valore maxNum della configurazione
-func GetNodeToContact() []Node {
+// funzione che sceglie i nodi da contattare in base al valore impostato nel file di configurazione
+func getNodesToContact() []node {
 	//scelta dei nodi da contattare
 	actualLen := getLenght()
-	howManyToContact := GetMaxNum()
+	howManyToContact := getMaxNum()
 	isRand := true
 
-	if GetMaxNum() == 0 {
+	if getMaxNum() == 0 {
 		//calcolo rad quadr e arrotondo per eccesso
 		sqr := math.Sqrt(float64(actualLen))
 		howManyToContact = int(math.Ceil(sqr))
 	}
-	if GetMaxNum() == -1 {
+	if getMaxNum() == -1 {
 		//contatto tutti i nodi che conosco
 		howManyToContact = actualLen
 		isRand = false
 	}
 
-	var selectedNode []Node
+	var selectedNode []node
 
 	if isRand {
 		//contatto in modo randomico
 		elemToContact := make(map[int]bool)
 
 		activeNodesMutex.Lock()
+		//ottengo la lunghezza della lista dei nodi attivi
 		lenght := getLenght()
 		//genero dei numeri casuali tutti differenti, corrispondono alla scelta di nodi da contattare
 		i := 0
+
+		//caso in cui conosco un solo nodo
+		if lenght == 1 {
+			selectedNode = append(selectedNode, nodesList[0])
+			activeNodesMutex.Unlock()
+			return selectedNode
+		}
+
+		//caso in cui la lunghezza dei nodi vivi combaci con il numero massimo da contattare
+		if lenght == howManyToContact || lenght < howManyToContact {
+			for i := 0; i < lenght; i++ {
+				selectedNode = append(selectedNode, nodesList[i])
+			}
+			activeNodesMutex.Unlock()
+			return selectedNode
+		}
+
+		//caso generico
 		for i < howManyToContact {
 			if i >= lenght {
 				break
@@ -166,8 +179,8 @@ func GetNodeToContact() []Node {
 
 }
 
-// funzione che restituisce tutti i nodi per eseguire il multicast
-func GetNodesMulticast() map[int]*net.UDPAddr {
+// funzione che restituisce tutti i nodi a cui inviare un messaggio di multicast
+func getNodesMulticast() map[int]*net.UDPAddr {
 
 	idMap := make(map[int]*net.UDPAddr)
 
@@ -182,7 +195,7 @@ func GetNodesMulticast() map[int]*net.UDPAddr {
 }
 
 // funzione che restituisce la lista di tutti gli id dei nodi conosciuti
-func GetNodesId() []int {
+func getNodesId() []int {
 	var array []int
 
 	activeNodesMutex.Lock()
@@ -198,14 +211,14 @@ func GetNodesId() []int {
 }
 
 // funzione che aggiorna un nodo della lista, aggiorna stato, distanza e tempo di risposta
-func UpdateNodeDistance(id int, state int, responseTime int, distance int) {
+func updateNodeDistance(id int, state int, responseTime int, distance int) {
 	activeNodesMutex.Lock()
 
 	for i := 0; i < len(nodesList); i++ {
 		if nodesList[i].ID == id {
 			nodesList[i].State = state
 			nodesList[i].Retry = getMaxRetry()
-			p := GetP()
+			p := getP()
 
 			if nodesList[i].Distance <= 0 {
 				nodesList[i].Distance = distance
@@ -226,7 +239,7 @@ func UpdateNodeDistance(id int, state int, responseTime int, distance int) {
 
 // funzione che va a decrementare il numero di retry dopo un timeout
 // se il numero di retry arriva a 0 si elimina tale nodo
-// ritorna false ha 0 retry
+// ritorna false se tale nodo ha 0 retry
 // ritorna true se ha un numero di retry maggiori di 0
 func decrementNumberOfRetry(id int) bool {
 	activeNodesMutex.Lock()
@@ -236,11 +249,11 @@ func decrementNumberOfRetry(id int) bool {
 			nodesList[i].Retry--
 			if nodesList[i].Retry <= 0 {
 				activeNodesMutex.Unlock()
-				fmt.Printf("[PEER %d] time out expired for node: %d no retry left. Fault node!\n", GetMyId(), id)
-				UpdateNodeStateToFault(id)
+				fmt.Printf("[PEER %d] time out expired for node: %d no retry left. Fault node!\n", getMyId(), id)
+				updateNodeStateToFault(id)
 				return false
 			}
-			fmt.Printf("[PEER %d] time out expired for node: %d retry left: %d\n", GetMyId(), id, nodesList[i].Retry)
+			fmt.Printf("[PEER %d] time out expired for node: %d retry left: %d\n", getMyId(), id, nodesList[i].Retry)
 			break
 		}
 
@@ -267,7 +280,7 @@ func resetRetryNumber(id int) {
 }
 
 // funzione che segnala il nodo come fallito e lo rimuove dalla lista
-func UpdateNodeStateToFault(id int) {
+func updateNodeStateToFault(id int) {
 	activeNodesMutex.Lock()
 	faultNodesMutex.Lock()
 
@@ -299,7 +312,7 @@ func reviveFaultNode(faultId int) {
 
 			faultNodesList = append(faultNodesList[:i], faultNodesList[i+1:]...)
 
-			UpdateNodeDistance(faultId, 1, -1, -1)
+			updateNodeDistance(faultId, 1, -1, -1)
 		}
 	}
 
@@ -326,7 +339,7 @@ func tryLazzarus() {
 	faultNodesMutex.Lock()
 
 	if len(nodesList) == 0 && len(faultNodesList) > 0 {
-		fmt.Printf("[PEER %d] TRYING LAZZARUS OPERATION\n", GetMyId())
+		fmt.Printf("[PEER %d] TRYING LAZZARUS PROTOCOL\n", getMyId())
 		faults := len(faultNodesList)
 
 		activeNodesMutex.Unlock()
@@ -343,10 +356,12 @@ func tryLazzarus() {
 	faultNodesMutex.Unlock()
 }
 
-func PrintAllNodeList() {
+// funzione di ausilio che stampa tutti i nodi attivi e fault che il nodo conosce attualmente
+// ritorna anche la distanza
+func printAllNodeList() {
 	activeNodesMutex.Lock()
 
-	fmt.Printf("\n[PEER %d] active nodes\n", GetMyId())
+	fmt.Printf("\n[PEER %d] active nodes\n", getMyId())
 	for i := 0; i < len(nodesList); i++ {
 		fmt.Printf("nodo id: %d  stato: %d  distanza: %d \n", nodesList[i].ID, nodesList[i].State, nodesList[i].Distance)
 	}
@@ -355,7 +370,7 @@ func PrintAllNodeList() {
 		fmt.Printf("None\n")
 	}
 
-	fmt.Printf("[PEER %d] fault nodes\n", GetMyId())
+	fmt.Printf("[PEER %d] fault nodes\n", getMyId())
 
 	for i := 0; i < len(faultNodesList); i++ {
 		fmt.Printf("nodo id: %d  stato: %d  distanza: %d\n", faultNodesList[i].ID, faultNodesList[i].State, faultNodesList[i].Distance)

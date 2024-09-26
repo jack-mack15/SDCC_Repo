@@ -44,6 +44,9 @@ var maxNum int
 // variabile che indica che tipologia di gossip usare
 var gossipType int
 
+// tempo in secondi tra due iterazioni di blind counter gossip per lo stesso update
+var gossip_interval int
+
 // numero massimo di retry prima di segnare un nodo fault
 var max_retry int
 
@@ -56,12 +59,12 @@ var b int
 // massimo numero di volte che un update verrà inoltrato
 var f int
 
-func ReadConfigFile() int {
+func readConfigFile() int {
 
 	//recupero il path del file delle configurazioni
 	exePath, err := os.Executable()
 	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore apertura file:", err)
+		fmt.Println("readConfigFile()--> errore apertura file:", err)
 	}
 
 	exeDir := filepath.Dir(exePath)
@@ -71,7 +74,7 @@ func ReadConfigFile() int {
 	file, err := os.Open(filePath)
 
 	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore nell'apertura del file:", err)
+		fmt.Println("readConfigFile()--> errore nell'apertura del file:", err)
 		return 0
 	}
 	defer func(file *os.File) {
@@ -93,7 +96,7 @@ func ReadConfigFile() int {
 
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) != 2 {
-			fmt.Println("ReadConfigFile()--> formato della linea non valido:", line)
+			fmt.Println("readConfigFile()--> formato della linea non valido:", line)
 			continue
 		}
 
@@ -104,36 +107,36 @@ func ReadConfigFile() int {
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Println("ReadConfigFile()--> 3rrore durante la lettura del file:", err)
+		fmt.Println("readConfigFile()--> 3rrore durante la lettura del file:", err)
 	}
 
 	//lettura p
 	p, err = strconv.ParseFloat(data["p"], 64)
 	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore nella conversione:", err)
+		fmt.Println("readConfigFile()--> errore nella conversione:", err)
 		return 0
 	}
 	//lettura my port
 	myPort, err = strconv.Atoi(data["my_port"])
 	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore nella conversione my_port:", err)
+		fmt.Println("readConfigFile()--> errore nella conversione my_port:", err)
 		return 0
 	}
 	//lettura defRTT
 	defRTT, err = strconv.Atoi(data["def_RTT"])
 	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore nella conversione defRTT:", err)
+		fmt.Println("readConfigFile()--> errore nella conversione defRTT:", err)
 		return 0
 	}
 	//lettura rtt_mult
 	rtt_mult, err = strconv.Atoi(data["rtt_mult"])
 	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore nella conversione rtt_mult:", err)
+		fmt.Println("readConfigFile()--> errore nella conversione rtt_mult:", err)
 	}
 	//lettura hb_delay
 	hb_delay, err = strconv.Atoi(data["hb_delay"])
 	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore nella conversione hb_delay:", err)
+		fmt.Println("readConfigFile()--> errore nella conversione hb_delay:", err)
 	}
 	//lettura info service registry
 	//sdIP = data["sd_ip"]
@@ -155,42 +158,47 @@ func ReadConfigFile() int {
 
 	sdPort, err = strconv.Atoi(data["sd_port"])
 	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore nella conversione porta service:", err)
+		fmt.Println("readConfigFile()--> errore nella conversione porta service:", err)
 		return 0
 	}
 	//lettura max num
 	maxNum, err = strconv.Atoi(data["num"])
 	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore nella conversione max num:", err)
+		fmt.Println("readConfigFile()--> errore nella conversione max num:", err)
 		return 0
 	}
 	//lettura gossiptype
 	gossipType, err = strconv.Atoi(data["gossip_type"])
 	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore nella conversione gossipType:", err)
+		fmt.Println("readConfigFile()--> errore nella conversione gossipType:", err)
 		return 0
+	}
+	//lettura gossip_interval
+	gossip_interval, err = strconv.Atoi(data["gossip_interval"])
+	if err != nil {
+		fmt.Println("readConfigFile()--> errore nella conversione gossip_interval:", err)
 	}
 	//lettura b
 	b, err = strconv.Atoi(data["max_neighbour"])
 	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore nella conversione max neighbour:", err)
+		fmt.Println("readConfigFile()--> errore nella conversione max neighbour:", err)
 		return 0
 	}
 	//lettura f
 	f, err = strconv.Atoi(data["max_iter"])
 	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore nella conversione di max iter:", err)
+		fmt.Println("readConfigFile()--> errore nella conversione di max iter:", err)
 		return 0
 	}
 	//lettura max_retry
 	max_retry, err = strconv.Atoi(data["max_retry"])
 	if err != nil {
-		fmt.Println("ReadConfigFile()--> errore nella conversione max_retry:", err)
+		fmt.Println("readConfigFile()--> errore nella conversione max_retry:", err)
 	}
 	//lettura using max
 	max_fun := data["using_max"]
 	if max_fun == "" {
-		fmt.Println("ReadConfigFile()--> errore using_max not set")
+		fmt.Println("readConfigFile()--> errore using_max not set")
 	} else if max_fun == "1" {
 		using_max = true
 	} else {
@@ -211,6 +219,12 @@ func checkParameters() bool {
 	//check gossiptype
 	if gossipType != 1 && gossipType != 2 {
 		fmt.Println("config file error: gossipType must be equal to 1 or 2")
+		return false
+	}
+
+	//check gossip_interval
+	if gossip_interval < 0 {
+		fmt.Println("config file error: gossip_interval must be a positive number")
 		return false
 	}
 
@@ -268,41 +282,41 @@ func checkParameters() bool {
 
 	return true
 }
-func GetMyPort() int {
+func getMyPort() int {
 	return myPort
 }
-func SetOwnUDPAddr(UDPAddr *net.UDPAddr) {
+func setOwnUDPAddr(UDPAddr *net.UDPAddr) {
 	ownUDPAddress = UDPAddr
 }
-func SetOwnTCPAddr(TCPAddr *net.TCPAddr) {
+func setOwnTCPAddr(TCPAddr *net.TCPAddr) {
 	ownTCPAddress = TCPAddr
 }
-func GetGossipType() int {
+func getGossipType() int {
 	return gossipType
 }
-func GetP() float64 {
+func getP() float64 {
 	return p
 }
-func GetOwnUDPAddr() *net.UDPAddr {
+func getOwnUDPAddr() *net.UDPAddr {
 	return ownUDPAddress
 }
-func GetOwnTCPAddr() *net.TCPAddr {
+func getOwnTCPAddr() *net.TCPAddr {
 	return ownTCPAddress
 }
-func GetMaxNum() int {
+func getMaxNum() int {
 	return maxNum
 }
-func GetSDInfoString() string {
+func getSDInfoString() string {
 	portStr := strconv.Itoa(sdPort)
 	return sdIP + ":" + portStr
 }
-func SetMyId(id int) {
+func setMyId(id int) {
 	myId = id
 }
-func GetMyId() int {
+func getMyId() int {
 	return myId
 }
-func GetDefRTT() int {
+func getDefRTT() int {
 	return defRTT
 }
 func getRttMult() int {
@@ -311,11 +325,14 @@ func getRttMult() int {
 func getHBDelay() int {
 	return hb_delay
 }
-func GetMaxNeighbour() int {
+func getMaxNeighbour() int {
 	return b
 }
-func GetMaxIter() int {
+func getMaxIter() int {
 	return f
+}
+func getGossipInterval() int {
+	return gossip_interval
 }
 func getMaxRetry() int {
 	return max_retry

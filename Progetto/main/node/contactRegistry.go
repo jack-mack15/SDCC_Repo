@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-func ContactRegistry(localAddr *net.TCPAddr, addr string) string {
+func contactRegistry(localAddr *net.TCPAddr, addr string) string {
 
 	//ottengo l'indirizzo del service registry
 	remoteAddr, err := net.ResolveTCPAddr("tcp", addr)

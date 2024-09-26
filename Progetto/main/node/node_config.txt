@@ -28,6 +28,11 @@ num=1
 #gossipType=2 significa usare blind counter rumor mongering
 gossip_type=1
 
+#intervallo (in millisecondi) tra iterazioni di blind counter gossip per lo stesso update
+#intero positivo
+gossip_interval=2000
+
+
 #parametro B del blind rumor mongering, indica il numero massimo di nodi vicini
 #a cui si inoltra un update. deve essere un intero positivo
 max_neighbour=2

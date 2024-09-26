@@ -50,9 +50,9 @@ func addFaultNodeStruct(faultId int) {
 
 	currElem := blindInfoStruct{}
 	currElem.id = faultId
-	currElem.f = GetMaxIter()
-	currElem.b = GetMaxNeighbour()
-	currElem.toNotify = GetNodesId()
+	currElem.f = getMaxIter()
+	currElem.b = getMaxNeighbour()
+	currElem.toNotify = getNodesId()
 
 	updatesList = append(updatesList, &currElem)
 	updateListMutex.Unlock()
@@ -192,7 +192,7 @@ func randomBlindCounterSelection(idArray []int) []int {
 	lenght := len(idArray)
 
 	i := 0
-	b := GetMaxNeighbour()
+	b := getMaxNeighbour()
 
 	if b >= lenght {
 		//ho meno nodi da contattare del numero massimo di nodi da contattare per iterazione

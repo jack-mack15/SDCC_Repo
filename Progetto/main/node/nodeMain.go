@@ -14,7 +14,7 @@ import (
 func main() {
 
 	//SET UP del nodo
-	err := ReadConfigFile()
+	err := readConfigFile()
 	if err == 0 {
 		fmt.Println("errore nel recupero del file di conf")
 		return
@@ -35,11 +35,11 @@ func main() {
 	}
 
 	ownIP := localAddr.IP
-	SetOwnUDPAddr(&net.UDPAddr{IP: ownIP, Port: GetMyPort()})
-	SetOwnTCPAddr(&net.TCPAddr{IP: ownIP, Port: GetMyPort()})
+	setOwnUDPAddr(&net.UDPAddr{IP: ownIP, Port: getMyPort()})
+	setOwnTCPAddr(&net.TCPAddr{IP: ownIP, Port: getMyPort()})
 
 	//contatto il registry
-	sdResponseString := ContactRegistry(GetOwnTCPAddr(), GetSDInfoString())
+	sdResponseString := contactRegistry(getOwnTCPAddr(), getSDInfoString())
 
 	retry := 0
 	howMany := 0
@@ -51,32 +51,36 @@ func main() {
 			retry++
 			time.Sleep(5 * time.Second)
 
-			sdResponseString = ContactRegistry(GetOwnTCPAddr(), GetSDInfoString())
+			sdResponseString = contactRegistry(getOwnTCPAddr(), getSDInfoString())
 		}
 	}
 
-	//FASE ATTIVA
 	initLogFile()
 	//sleep per dare tempo a netem di assegnare i ritardi o tirare su la rete
 	time.Sleep(5 * time.Second)
+
+	//avvio della goroutine di ricezione
 	go receiverHandler()
 
 	lazzarusTry = 2
 
+	//FASE ATTIVA
 	for {
 		//scelgo i nodi da contattare
-		nodesToContact := GetNodeToContact()
+		nodesToContact := getNodesToContact()
 
 		contactNode(nodesToContact)
 
 		time.Sleep(time.Duration(getHBDelay()) * time.Second)
 
-		PrintAllNodeList()
+		printAllNodeList()
 
 		activeNodeLenght := getLenght()
 		if activeNodeLenght == 0 {
 			tryLazzarus()
 		}
+
+		//TODO settare i lazzarus retry da file di conf
 
 		//TODO controllare tutta la robba da eliminare
 		//in receiverHanlder()
@@ -88,19 +92,13 @@ func main() {
 
 		//TODO gestire meglio le chiusure dei canali?
 
-		//TODO sistema il fatto che se un nodo mi invia heartbeat, io devo aggiornargli lo stato, per il momento non lo fa
-
-		//TODO sistemare il fatto che se mi rifaccio vivo potrebbero esserci altrin nodi che continuano a professarmi morto
-
-		//TODO implementare un file log su cui scrive un nodo tutti quelli che sa vivi o morti
-
 	}
 }
 
 // funzione che smista le richieste di connessioni da parte di altri nodi
 func receiverHandler() {
 
-	conn, err := net.ListenUDP("udp", GetOwnUDPAddr())
+	conn, err := net.ListenUDP("udp", getOwnUDPAddr())
 	if err != nil {
 		fmt.Println("receiverHandler()--> errore creazione listener UDP:", err)
 		return
@@ -116,7 +114,7 @@ func receiverHandler() {
 			continue
 		}
 
-		go HandleUDPMessage(conn, remoteUDPAddr, buffer[:n])
+		go handleUDPMessage(conn, remoteUDPAddr, buffer[:n])
 
 	}
 }
@@ -136,7 +134,7 @@ func extractNodeList(str string) int {
 
 	parts := strings.SplitN(str, "#", count)
 	myId, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
-	SetMyId(myId)
+	setMyId(myId)
 
 	for i := 1; i < count; i++ {
 
@@ -151,13 +149,12 @@ func extractNodeList(str string) int {
 		}
 
 		currStrAddr := strings.TrimSpace(currNodeParts[1])
-		currTCPAddr, err := net.ResolveTCPAddr("tcp", currStrAddr)
 		currUDPAddr, err := net.ResolveUDPAddr("udp", currStrAddr)
 		if err != nil {
 			log.Printf("extractNodeList()---> errore risoluzione indirizzo remoto %s: %v", currStrAddr, err)
 		}
 
-		AddActiveNode(currId, 0, currStrAddr, currUDPAddr, currTCPAddr)
+		addActiveNode(currId, 0, currUDPAddr)
 		nodeCount++
 
 	}
@@ -167,7 +164,7 @@ func extractNodeList(str string) int {
 
 // funzione che va a contattare i nodi della lista per vedere se sono attivi
 // sceglie i nodi e poi invoca sendHeartBeat()
-func contactNode(selectedNodes []Node) {
+func contactNode(selectedNodes []node) {
 
 	//contatto i nodi
 	lenght := len(selectedNodes)
@@ -176,7 +173,7 @@ func contactNode(selectedNodes []Node) {
 
 	for i := 0; i < lenght; i++ {
 		wg.Add(1)
-		go SendHeartbeat(selectedNodes[i], GetMyId(), &wg)
+		go sendHeartbeat(selectedNodes[i], getMyId(), &wg)
 	}
 	wg.Wait()
 
