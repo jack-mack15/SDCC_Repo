@@ -22,7 +22,11 @@ func contactRegistry(localAddr *net.TCPAddr, addr string) string {
 		os.Exit(1)
 	}
 
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("Errore nella chiusura della connessione: %v", err)
+		}
+	}()
 
 	message := "0#hello registry\n"
 

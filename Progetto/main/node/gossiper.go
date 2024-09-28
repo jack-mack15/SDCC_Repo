@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// interfaccia gossiper
+// Gossiper interfaccia gossiper
 type Gossiper interface {
 	Gossip(id int)
 	HandleGossipMessage(id int, string string)
@@ -15,10 +15,10 @@ type Gossiper interface {
 
 //BIMODAL MULTICAST
 
-// struttura del bimodal multicast
+// BimodalGossiper struttura del bimodal multicast
 type BimodalGossiper struct{}
 
-// implementazione del bimodal multicast
+// Gossip implementazione del bimodal multicast
 // invio l'update a tutti i nodi che conosco
 func (i BimodalGossiper) Gossip(id int) {
 
@@ -41,7 +41,7 @@ func (i BimodalGossiper) Gossip(id int) {
 	}
 }
 
-// funzione che viene eseguita quando ricevo un update da un nodo o
+// HandleGossipMessage funzione che viene eseguita quando ricevo un update da un nodo o
 // quando ottengo il digest di un heartbeat
 func (i BimodalGossiper) HandleGossipMessage(idSender int, message string) {
 
@@ -66,7 +66,7 @@ func (i BimodalGossiper) HandleGossipMessage(idSender int, message string) {
 	}
 }
 
-// funzione che gestisce il caso in cui un nodo fault si ripresenta nella rete
+// ReviveNode funzione che gestisce il caso in cui un nodo fault si ripresenta nella rete
 func (i BimodalGossiper) ReviveNode(id int) {
 	fmt.Printf("[PEER %d] BM LAZZARUS node: %d\n", getMyId(), id)
 	removeOfflineNode(id)
@@ -74,10 +74,10 @@ func (i BimodalGossiper) ReviveNode(id int) {
 
 //BLIND RUMOR MONGERING
 
-// struttura del blind rumor mongering
+// BlindRumorGossiper struttura del blind rumor mongering
 type BlindRumorGossiper struct{}
 
-// funzione che gestisce un update ricevuto da un altro nodo
+// HandleGossipMessage funzione che gestisce un update ricevuto da un altro nodo
 func (e BlindRumorGossiper) HandleGossipMessage(idSender int, message string) {
 
 	fmt.Printf("[PEER %d] BCRM, received gossip message from: %d fault node: %s\n", getMyId(), idSender, message)
@@ -117,7 +117,7 @@ func (e BlindRumorGossiper) HandleGossipMessage(idSender int, message string) {
 	}
 }
 
-// funzione che va a diffondere un update
+// Gossip funzione che va a diffondere un update
 func (e BlindRumorGossiper) Gossip(faultId int) {
 
 	//vado a decrementare il numero di retry
@@ -151,7 +151,7 @@ func (e BlindRumorGossiper) Gossip(faultId int) {
 	}
 }
 
-// funzione che gestisce il caso in cui un nodo fault si ripresenta nella rete
+// ReviveNode funzione che gestisce il caso in cui un nodo fault si ripresenta nella rete
 func (e BlindRumorGossiper) ReviveNode(faultId int) {
 	fmt.Printf("[PEER %d] BCRM, LAZZARUS node: %d\n", getMyId(), faultId)
 	removeUpdate(faultId)

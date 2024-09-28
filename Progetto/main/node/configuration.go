@@ -29,14 +29,16 @@ var ownTCPAddress *net.TCPAddr
 var defRTT int
 
 // valore che indica quanti rtt aspettare che un nodo risponda
-var rtt_mult int
+var rttMult float64
 
 // delay in secondi tra due serie di heartbeat
-var hb_delay int
+var hbDelay int
 
 // indirizzo ip e porta del service discovery
 var sdIP string
 var sdPort int
+
+var sdRetry int
 
 // valore che indica quanti nodi può contattare ad ogni iterazione
 var maxNum int
@@ -45,19 +47,25 @@ var maxNum int
 var gossipType int
 
 // tempo in secondi tra due iterazioni di blind counter gossip per lo stesso update
-var gossip_interval int
+var gossipInterval int
 
 // numero massimo di retry prima di segnare un nodo fault
-var max_retry int
+var maxRetry int
 
 // bool che stabilisce se usare la funzione max nell'aggiornamento del tempo di risposta
-var using_max bool
+var usingMax bool
 
 // massimo numero di vicini a cui il nodo corrente inoltra un update
 var b int
 
 // massimo numero di volte che un update verrà inoltrato
 var f int
+
+// numero di tentativi massimi per la funzione tryLazzarus()
+var lazzarusTry int
+
+// intervallo di tempo in secondi tra due lazzarusTry
+var lazzarusTime int
 
 func readConfigFile() int {
 
@@ -108,6 +116,7 @@ func readConfigFile() int {
 
 	if err := scanner.Err(); err != nil {
 		fmt.Println("readConfigFile()--> 3rrore durante la lettura del file:", err)
+		return 0
 	}
 
 	//lettura p
@@ -128,15 +137,17 @@ func readConfigFile() int {
 		fmt.Println("readConfigFile()--> errore nella conversione defRTT:", err)
 		return 0
 	}
-	//lettura rtt_mult
-	rtt_mult, err = strconv.Atoi(data["rtt_mult"])
+	//lettura rttMult
+	rttMult, err = strconv.ParseFloat(data["rttMult"], 64)
 	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione rtt_mult:", err)
+		fmt.Println("readConfigFile()--> errore nella conversione rttMult:", err)
+		return 0
 	}
 	//lettura hb_delay
-	hb_delay, err = strconv.Atoi(data["hb_delay"])
+	hbDelay, err = strconv.Atoi(data["hb_delay"])
 	if err != nil {
 		fmt.Println("readConfigFile()--> errore nella conversione hb_delay:", err)
+		return 0
 	}
 	//lettura info service registry
 	//sdIP = data["sd_ip"]
@@ -161,6 +172,12 @@ func readConfigFile() int {
 		fmt.Println("readConfigFile()--> errore nella conversione porta service:", err)
 		return 0
 	}
+
+	sdRetry, err = strconv.Atoi(data["sd_retry"])
+	if err != nil {
+		fmt.Println("readConfigFile()--> errore nella conversione sd_retry:", err)
+		return 0
+	}
 	//lettura max num
 	maxNum, err = strconv.Atoi(data["num"])
 	if err != nil {
@@ -174,9 +191,10 @@ func readConfigFile() int {
 		return 0
 	}
 	//lettura gossip_interval
-	gossip_interval, err = strconv.Atoi(data["gossip_interval"])
+	gossipInterval, err = strconv.Atoi(data["gossip_interval"])
 	if err != nil {
 		fmt.Println("readConfigFile()--> errore nella conversione gossip_interval:", err)
+		return 0
 	}
 	//lettura b
 	b, err = strconv.Atoi(data["max_neighbour"])
@@ -191,18 +209,31 @@ func readConfigFile() int {
 		return 0
 	}
 	//lettura max_retry
-	max_retry, err = strconv.Atoi(data["max_retry"])
+	maxRetry, err = strconv.Atoi(data["max_retry"])
 	if err != nil {
 		fmt.Println("readConfigFile()--> errore nella conversione max_retry:", err)
+		return 0
 	}
 	//lettura using max
-	max_fun := data["using_max"]
-	if max_fun == "" {
+	maxFun := data["using_max"]
+	if maxFun == "" {
 		fmt.Println("readConfigFile()--> errore using_max not set")
-	} else if max_fun == "1" {
-		using_max = true
+	} else if maxFun == "1" {
+		usingMax = true
 	} else {
-		using_max = false
+		usingMax = false
+	}
+	//lettura lazzarus_retry
+	lazzarusTry, err = strconv.Atoi(data["lazzarus_try"])
+	if err != nil {
+		fmt.Println("readConfigFile()--> errore converione lazzarus_try")
+		return 0
+	}
+	//lettura lazzarus_time
+	lazzarusTime, err = strconv.Atoi(data["lazzarus_time"])
+	if err != nil {
+		fmt.Println("readConfigFile()--> errore converione lazzarus_time")
+		return 0
 	}
 
 	check := checkParameters()
@@ -223,7 +254,7 @@ func checkParameters() bool {
 	}
 
 	//check gossip_interval
-	if gossip_interval < 0 {
+	if gossipInterval < 0 {
 		fmt.Println("config file error: gossip_interval must be a positive number")
 		return false
 	}
@@ -241,7 +272,7 @@ func checkParameters() bool {
 	}
 
 	//check p
-	if p < 0 || p > 1 {
+	if p < 0.0 || p > 1.0 {
 		fmt.Println("config file error: parameter P must be between 0 and 1")
 		return false
 	}
@@ -252,14 +283,14 @@ func checkParameters() bool {
 		return false
 	}
 
-	//check rtt_mult
-	if rtt_mult <= 0 {
-		fmt.Println("config file error: parameter rtt_mult must be a positive integer")
+	//check rttMult
+	if rttMult <= 0.0 {
+		fmt.Println("config file error: parameter rttMult must be a positive float")
 		return false
 	}
 
 	//check hb_delay
-	if hb_delay <= 0 {
+	if hbDelay <= 0 {
 		fmt.Println("config file error: parameter hb_delay must be a positive integer")
 	}
 	//check maxNum
@@ -274,9 +305,26 @@ func checkParameters() bool {
 		return false
 	}
 
+	//check sd_retry
+	if sdRetry < 0 {
+		fmt.Println("config file error: sd_retry must be an positive integer")
+		return false
+	}
 	//check max_retry
-	if max_retry <= 0 {
+	if maxRetry <= 0 {
 		fmt.Println("config file error: MaxRetry must be an integer bigger than 0")
+		return false
+	}
+
+	//check lazzarus_try
+	if lazzarusTry < 0 {
+		fmt.Println("config file error: lazzarus_try must be a positive integer")
+		return false
+	}
+
+	//check lazzarus_time
+	if lazzarusTime <= 0 {
+		fmt.Println("config file error: lazzarus_time must be a positive integer")
 		return false
 	}
 
@@ -310,6 +358,9 @@ func getSDInfoString() string {
 	portStr := strconv.Itoa(sdPort)
 	return sdIP + ":" + portStr
 }
+func getSDRetry() int {
+	return sdRetry
+}
 func setMyId(id int) {
 	myId = id
 }
@@ -319,11 +370,11 @@ func getMyId() int {
 func getDefRTT() int {
 	return defRTT
 }
-func getRttMult() int {
-	return rtt_mult
+func getRttMult() float64 {
+	return rttMult
 }
 func getHBDelay() int {
-	return hb_delay
+	return hbDelay
 }
 func getMaxNeighbour() int {
 	return b
@@ -332,11 +383,20 @@ func getMaxIter() int {
 	return f
 }
 func getGossipInterval() int {
-	return gossip_interval
+	return gossipInterval
 }
 func getMaxRetry() int {
-	return max_retry
+	return maxRetry
 }
 func getUsingMax() bool {
-	return using_max
+	return usingMax
+}
+func getLazzarusTry() int {
+	return lazzarusTry
+}
+func setLazzarusTry(try int) {
+	lazzarusTry = try
+}
+func getLazzarusTime() int {
+	return lazzarusTime
 }

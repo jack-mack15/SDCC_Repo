@@ -43,9 +43,10 @@ func main() {
 
 	retry := 0
 	howMany := 0
+	maxRetry := getSDRetry()
 	for {
 		howMany = extractNodeList(sdResponseString)
-		if howMany > 0 || retry >= 10 {
+		if howMany > 0 || retry >= maxRetry {
 			break
 		} else {
 			retry++
@@ -62,8 +63,6 @@ func main() {
 	//avvio della goroutine di ricezione
 	go receiverHandler()
 
-	lazzarusTry = 2
-
 	//FASE ATTIVA
 	for {
 		//scelgo i nodi da contattare
@@ -71,7 +70,7 @@ func main() {
 
 		contactNode(nodesToContact)
 
-		time.Sleep(time.Duration(getHBDelay()) * time.Second)
+		time.Sleep(time.Duration(getHBDelay()) * time.Millisecond)
 
 		printAllNodeList()
 
@@ -79,8 +78,6 @@ func main() {
 		if activeNodeLenght == 0 {
 			tryLazzarus()
 		}
-
-		//TODO settare i lazzarus retry da file di conf
 
 		//TODO controllare tutta la robba da eliminare
 		//in receiverHanlder()
@@ -103,7 +100,11 @@ func receiverHandler() {
 		fmt.Println("receiverHandler()--> errore creazione listener UDP:", err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("Errore nella chiusura della connessione: %v", err)
+		}
+	}()
 
 	for {
 		buffer := make([]byte, 128)

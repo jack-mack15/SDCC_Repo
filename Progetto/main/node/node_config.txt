@@ -10,12 +10,13 @@ p=0.5
 #valore compreso tra 0 e 1000
 def_RTT=500
 
-#numero che specifica quanti rtt aspettare quando si contatta un nodo. ovvero se il rtt misurato
-#risulta 10 ms, allora il nodo sender aspetta 10*rtt_mult ms
-rtt_mult=3
+#parametro che indica il moltiplicatore per il calcolo del timer dell'heartbeat. viene moltiplicato
+#al precedente tempo di risposta del nodo da contattare
+#float positivo
+rtt_mult=3.0
 
-#tempo in secondi tra due iterazioni di invio di heartbeat
-hb_delay=8
+#tempo in millisecondi tra due iterazioni di invio di heartbeat
+hb_delay=8000
 
 #numero di nodi che un singolo nodo può contattare ad ogni iterazione
 #questo parametro non si riferisce ai parametri di gossip, ma alla diffusione degli heartbeat
@@ -31,7 +32,6 @@ gossip_type=1
 #intervallo (in millisecondi) tra iterazioni di blind counter gossip per lo stesso update
 #intero positivo
 gossip_interval=2000
-
 
 #parametro B del blind rumor mongering, indica il numero massimo di nodi vicini
 #a cui si inoltra un update. deve essere un intero positivo
@@ -51,8 +51,21 @@ max_retry=1
 #posto a 1 indica che si usa il max, 0 non si usa il max
 using_max=1
 
+#parametro che indica il numero massimo di tentativi per rianimare un nodo con la funzione lazzarus
+#situazione in cui il nodo possiede una lista di nodi attiva vuota e lista di nodi fault non vuota
+#intero positivo
+lazzarus_try=3
+
+#intervallo di tempo in millisecondi tra due lazzarusTry, in caso il primo fallisse
+#intero positivo
+lazzarus_time=8000
+
 #porta del registry, deve combaciare con quella specificata nel docker compose file
 sd_port=8080
+
+#numero di tentativi massimo che un nodo può effettuare per ottenere una risposta dal service registry
+#intero positivo
+sd_retry=10
 
 #porta su cui si mette in ascolto il seguente nodo, deve combaciare con quella specificata nel dock comp file
 my_port=8081

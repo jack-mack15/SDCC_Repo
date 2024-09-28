@@ -36,8 +36,6 @@ var activeNodesMutex sync.Mutex
 
 var faultNodesMutex sync.Mutex
 
-var lazzarusTry int
-
 // funzione che restituisce l'indirizzo UDP di un nodo della lista
 func getSelectedUDPAddress(id int) *net.UDPAddr {
 	activeNodesMutex.Lock()
@@ -329,11 +327,11 @@ func getLenght() int {
 // di configurazione. Tenta di far rivivere un nodo
 func tryLazzarus() {
 
-	if lazzarusTry == 0 {
+	if getLazzarusTry() == 0 {
 		os.Exit(-1)
 	}
 
-	time.Sleep(8 * time.Second)
+	time.Sleep(time.Duration(getLazzarusTime()) * time.Millisecond)
 
 	activeNodesMutex.Lock()
 	faultNodesMutex.Lock()
@@ -348,7 +346,7 @@ func tryLazzarus() {
 		for i := faults - 1; i >= 0; i-- {
 			reviveFaultNode(faultNodesList[i].ID)
 		}
-		lazzarusTry--
+		setLazzarusTry(getLazzarusTry() - 1)
 		return
 	}
 

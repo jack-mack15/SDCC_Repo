@@ -112,7 +112,11 @@ func sendMulticastMessage(message string, remoteUDPAddr *net.UDPAddr) {
 		fmt.Println("sendMulticastMessage()--> errore durante la connessione:", err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("Errore nella chiusura della connessione: %v", err)
+		}
+	}()
 
 	_, err = conn.Write([]byte(message))
 	if err != nil {
@@ -131,7 +135,11 @@ func sendBlindCounterGossipMessage(toNotifyId int, faultId int) {
 		fmt.Println("sendBlindCounterGossipMessage()--> errore durante la connessione:", err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("Errore nella chiusura della connessione: %v", err)
+		}
+	}()
 
 	_, err = conn.Write([]byte(message))
 	if err != nil {
@@ -153,7 +161,11 @@ func sendHeartbeat(singleNode node, myId int, wg *sync.WaitGroup) {
 			fmt.Println("sendHeartBeat()--> errore durante la connessione:", err)
 			return
 		}
-		defer conn.Close()
+		defer func() {
+			if err := conn.Close(); err != nil {
+				log.Printf("Errore nella chiusura della connessione: %v", err)
+			}
+		}()
 
 		precResponseTime := singleNode.ResponseTime
 		if precResponseTime <= 0 {
@@ -166,7 +178,8 @@ func sendHeartbeat(singleNode node, myId int, wg *sync.WaitGroup) {
 
 		message := writeHeartBeatMessage(myId, getOwnUDPAddr().Port)
 
-		timerErr := conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(precResponseTime*getRttMult())))
+		multiplier := int(getRttMult())
+		timerErr := conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(precResponseTime*multiplier)))
 		if timerErr != nil {
 			return
 		}
