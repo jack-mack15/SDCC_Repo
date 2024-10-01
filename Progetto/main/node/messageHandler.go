@@ -47,7 +47,7 @@ func handleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []by
 			//GESTIONE MESSAGGIO HEARTBEAT CON ANNESSO DIGEST
 			//Heatbeat con digest del multicast bimodal
 			gossipMessage := parts[3]
-			go gossiper.HandleGossipMessage(id, gossipMessage)
+			go gossiper.HandleGossipFaultMessage(id, gossipMessage)
 		}
 
 	} else if code == "222" {
@@ -60,7 +60,7 @@ func handleUDPMessage(conn *net.UDPConn, remoteUDPAddr *net.UDPAddr, buffer []by
 		//gestisco le info sul nodo mittente se non lo conosco
 		handleNodeInfo(parts, remoteUDPAddr)
 
-		go gossiper.HandleGossipMessage(id, parts[3])
+		go gossiper.HandleGossipFaultMessage(id, parts[3])
 
 	}
 }
@@ -202,7 +202,7 @@ func sendHeartbeat(singleNode node, myId int, wg *sync.WaitGroup) {
 			if errors.As(err, &netErr) && netErr.Timeout() {
 
 				//invoco il gossiper poichè ho scoperto un nodo fault
-				go gossiper.Gossip(singleNode.ID)
+				go gossiper.GossipFault(singleNode.ID)
 
 				return
 			}

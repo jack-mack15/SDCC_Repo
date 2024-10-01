@@ -105,73 +105,56 @@ func getNodesToContact() []node {
 	//scelta dei nodi da contattare
 	actualLen := getLenght()
 	howManyToContact := getMaxNum()
-	isRand := true
 
 	if getMaxNum() == 0 {
 		//calcolo rad quadr e arrotondo per eccesso
 		sqr := math.Sqrt(float64(actualLen))
 		howManyToContact = int(math.Ceil(sqr))
 	}
-	if getMaxNum() == -1 {
-		//contatto tutti i nodi che conosco
-		howManyToContact = actualLen
-		isRand = false
-	}
 
 	var selectedNode []node
 
-	if isRand {
-		//contatto in modo randomico
-		elemToContact := make(map[int]bool)
+	//contatto in modo randomico
+	elemToContact := make(map[int]bool)
 
-		activeNodesMutex.Lock()
-		//ottengo la lunghezza della lista dei nodi attivi
-		lenght := getLenght()
-		//genero dei numeri casuali tutti differenti, corrispondono alla scelta di nodi da contattare
-		i := 0
+	activeNodesMutex.Lock()
+	//ottengo la lunghezza della lista dei nodi attivi
+	lenght := getLenght()
+	//genero dei numeri casuali tutti differenti, corrispondono alla scelta di nodi da contattare
+	i := 0
 
-		//caso in cui conosco un solo nodo
-		if lenght == 1 {
-			selectedNode = append(selectedNode, nodesList[0])
-			activeNodesMutex.Unlock()
-			return selectedNode
-		}
-
-		//caso in cui la lunghezza dei nodi vivi combaci con il numero massimo da contattare
-		if lenght == howManyToContact || lenght < howManyToContact {
-			for i := 0; i < lenght; i++ {
-				selectedNode = append(selectedNode, nodesList[i])
-			}
-			activeNodesMutex.Unlock()
-			return selectedNode
-		}
-
-		//caso generico
-		for i < howManyToContact {
-			if i >= lenght {
-				break
-			}
-			random := rand.Intn(lenght)
-			_, ok := elemToContact[random]
-			if !ok && nodesList[random].State != 2 {
-				elemToContact[random] = true
-				selectedNode = append(selectedNode, nodesList[random])
-				i++
-			} else {
-				continue
-			}
-		}
+	//caso in cui conosco un solo nodo
+	if lenght == 1 {
+		selectedNode = append(selectedNode, nodesList[0])
 		activeNodesMutex.Unlock()
+		return selectedNode
+	}
 
-	} else {
-		//contatto tutti quelli che conosco
-		activeNodesMutex.Lock()
-		lenght := getLenght()
+	//caso in cui la lunghezza dei nodi vivi combaci con il numero massimo da contattare
+	if lenght == howManyToContact || lenght < howManyToContact {
 		for i := 0; i < lenght; i++ {
 			selectedNode = append(selectedNode, nodesList[i])
 		}
 		activeNodesMutex.Unlock()
+		return selectedNode
 	}
+
+	//caso generico
+	for i < howManyToContact {
+		if i >= lenght {
+			break
+		}
+		random := rand.Intn(lenght)
+		_, ok := elemToContact[random]
+		if !ok && nodesList[random].State != 2 {
+			elemToContact[random] = true
+			selectedNode = append(selectedNode, nodesList[random])
+			i++
+		} else {
+			continue
+		}
+	}
+	activeNodesMutex.Unlock()
 
 	return selectedNode
 
@@ -216,7 +199,7 @@ func updateNodeDistance(id int, state int, responseTime int, distance int) {
 		if nodesList[i].ID == id {
 			nodesList[i].State = state
 			nodesList[i].Retry = getMaxRetry()
-			p := getP()
+			p := 0.2
 
 			if nodesList[i].Distance <= 0 {
 				nodesList[i].Distance = distance

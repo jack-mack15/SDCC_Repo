@@ -10,10 +10,8 @@ import (
 	"strings"
 )
 
-// parametro della exponential moving average
-// se p = 0, resetto RTT con il nuovo valore
-// se p = 0.5, faccio media aritmetica
-var p float64
+// valore di default per l'errore delle coordinate
+var defError float64
 
 // ID del nodo attuale
 var myId int
@@ -27,6 +25,9 @@ var ownTCPAddress *net.TCPAddr
 
 // RTT default per nodi che non ho mai contattato
 var defRTT int
+
+// massimo valore che può assumere una componente delle coordinate
+var maxCoord float64
 
 // valore che indica quanti rtt aspettare che un nodo risponda
 var rttMult float64
@@ -119,8 +120,8 @@ func readConfigFile() int {
 		return 0
 	}
 
-	//lettura p
-	p, err = strconv.ParseFloat(data["p"], 64)
+	//lettura defError
+	defError, err = strconv.ParseFloat(data["def_error"], 64)
 	if err != nil {
 		fmt.Println("readConfigFile()--> errore nella conversione:", err)
 		return 0
@@ -141,6 +142,12 @@ func readConfigFile() int {
 	rttMult, err = strconv.ParseFloat(data["rttMult"], 64)
 	if err != nil {
 		fmt.Println("readConfigFile()--> errore nella conversione rttMult:", err)
+		return 0
+	}
+	//lettura maxCoord
+	maxCoord, err = strconv.ParseFloat(data["max_coord_value"], 64)
+	if err != nil {
+		fmt.Println("readConfigFile()--> errore nella conversione max_coord_value:", err)
 		return 0
 	}
 	//lettura hb_delay
@@ -271,12 +278,6 @@ func checkParameters() bool {
 		return false
 	}
 
-	//check p
-	if p < 0.0 || p > 1.0 {
-		fmt.Println("config file error: parameter P must be between 0 and 1")
-		return false
-	}
-
 	//check def_rtt
 	if defRTT < 0 || defRTT > 1000 {
 		fmt.Println("config file error: parameter Def_RTT must be between 0 and 1000")
@@ -286,6 +287,11 @@ func checkParameters() bool {
 	//check rttMult
 	if rttMult <= 0.0 {
 		fmt.Println("config file error: parameter rttMult must be a positive float")
+		return false
+	}
+	//check maxCoord
+	if maxCoord <= 0.0 {
+		fmt.Println("config file error: parameter MaxCoord must be positive and not zero")
 		return false
 	}
 
@@ -342,9 +348,7 @@ func setOwnTCPAddr(TCPAddr *net.TCPAddr) {
 func getGossipType() int {
 	return gossipType
 }
-func getP() float64 {
-	return p
-}
+func getDefError() float64 { return defError }
 func getOwnUDPAddr() *net.UDPAddr {
 	return ownUDPAddress
 }
@@ -373,6 +377,7 @@ func getDefRTT() int {
 func getRttMult() float64 {
 	return rttMult
 }
+func getMaxCoord() float64 { return maxCoord }
 func getHBDelay() int {
 	return hbDelay
 }

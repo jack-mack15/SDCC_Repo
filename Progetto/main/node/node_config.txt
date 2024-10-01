@@ -1,14 +1,15 @@
-#parametro che impatta la exponential moving average per l'aggiornamento della distanza dei nodi
-#p=0.0, il valore corrente resetta il valore precedente della distanza
-#p=1.0, il valore corrente non altera il valore della distanza del nodo
-#p=0.5, media aritmetica tra valore precedente e corrente
-#valore compreso tra 0 e 1
-p=0.5
-
+#valore di default per l'errore di un nodo. è un valore di inizializzazione, verrà
+#modificato durante il ciclo di vita del nodo.
+def_error=1.0
 
 #RTT espresso in millisecondi di default per nodi di cui non si conosce la distanza
 #valore compreso tra 0 e 1000
 def_RTT=500
+
+#valore che indica il massimo valore che può assumere una componente delle coordinate.
+#il valore consigliato è 200.0. deve essere un float positivo differente da 0.0
+max_coord_value=200.0
+
 
 #parametro che indica il moltiplicatore per il calcolo del timer dell'heartbeat. viene moltiplicato
 #al precedente tempo di risposta del nodo da contattare
@@ -21,7 +22,6 @@ hb_delay=8000
 #numero di nodi che un singolo nodo può contattare ad ogni iterazione
 #questo parametro non si riferisce ai parametri di gossip, ma alla diffusione degli heartbeat
 #num=0 indica che si prende la radice quadrata del numero di nodi che il nodo conosce
-#num=-1 indica che si contattano tutti i nodi che si conosce
 num=1
 
 #tipologia di gossip scelta per la comunicazione dei nodi

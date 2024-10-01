@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -23,6 +21,9 @@ func main() {
 	//"istanzio" un gossiper in base al file di config
 	InitGossiper()
 
+	//inizializzo le mie coordinate
+	initMyCoordination()
+
 	//recupero il mio indirizzo ip
 	conn, err2 := net.Dial("udp", "8.8.8.8:80")
 	if err2 != nil {
@@ -38,25 +39,10 @@ func main() {
 	setOwnUDPAddr(&net.UDPAddr{IP: ownIP, Port: getMyPort()})
 	setOwnTCPAddr(&net.TCPAddr{IP: ownIP, Port: getMyPort()})
 
-	//contatto il registry
-	sdResponseString := contactRegistry(getOwnTCPAddr(), getSDInfoString())
-
-	retry := 0
-	howMany := 0
-	maxRetry := getSDRetry()
-	for {
-		howMany = extractNodeList(sdResponseString)
-		if howMany > 0 || retry >= maxRetry {
-			break
-		} else {
-			retry++
-			time.Sleep(5 * time.Second)
-
-			sdResponseString = contactRegistry(getOwnTCPAddr(), getSDInfoString())
-		}
-	}
+	tryContactRegistry()
 
 	initLogFile()
+
 	//sleep per dare tempo a netem di assegnare i ritardi o tirare su la rete
 	time.Sleep(5 * time.Second)
 
@@ -79,15 +65,14 @@ func main() {
 			tryLazzarus()
 		}
 
+		//TODO se devo cambiare il tutto devo fare il seguente
+		//TODO contact node fa anti entropy con 1 o più nodi
+		//TODO send heartbeat deve inviare le proprie coordinate, error e un tot di rtt di altri nodi
+		//TODO handleUDP deve avviare gli aggiornamenti delle coordinate
+
 		//TODO controllare tutta la robba da eliminare
-		//in receiverHanlder()
-		//in HanldeUDP
-		//blind rumor gossip, in gossip, ma forse è da sistemare in un dato del file config
-		//in handleUDP ci stanno i vechi delay
 
 		//TODO sistemazione del codice
-
-		//TODO gestire meglio le chiusure dei canali?
 
 	}
 }
@@ -118,49 +103,6 @@ func receiverHandler() {
 		go handleUDPMessage(conn, remoteUDPAddr, buffer[:n])
 
 	}
-}
-
-// funzione che riceve il messaggio di risposta da il service registry, ottiene id del nodo attuale e
-// completa la lista dei nodi che conosce il nodo attuale
-func extractNodeList(str string) int {
-	count := strings.Count(str, "#")
-	nodeCount := 0
-
-	//se sono il primo della rete count == 0
-	if count == 0 {
-		return nodeCount
-	}
-
-	count++
-
-	parts := strings.SplitN(str, "#", count)
-	myId, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
-	setMyId(myId)
-
-	for i := 1; i < count; i++ {
-
-		currNodeInfo := strings.TrimSpace(parts[i])
-		currNodeParts := strings.Split(currNodeInfo, "/")
-
-		currId, _ := strconv.Atoi(strings.TrimSpace(currNodeParts[0]))
-
-		//se il corrente id corrisponde al mio id, non aggiungo me stesso alla lista
-		if currId == myId {
-			continue
-		}
-
-		currStrAddr := strings.TrimSpace(currNodeParts[1])
-		currUDPAddr, err := net.ResolveUDPAddr("udp", currStrAddr)
-		if err != nil {
-			log.Printf("extractNodeList()---> errore risoluzione indirizzo remoto %s: %v", currStrAddr, err)
-		}
-
-		addActiveNode(currId, 0, currUDPAddr)
-		nodeCount++
-
-	}
-
-	return nodeCount
 }
 
 // funzione che va a contattare i nodi della lista per vedere se sono attivi

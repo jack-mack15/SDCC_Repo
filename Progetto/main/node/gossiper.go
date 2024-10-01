@@ -6,10 +6,10 @@ import (
 	"time"
 )
 
-// Gossiper interfaccia gossiper
-type Gossiper interface {
-	Gossip(id int)
-	HandleGossipMessage(id int, string string)
+// FaultGossiper interfaccia gossiper
+type FaultGossiper interface {
+	GossipFault(id int)
+	HandleGossipFaultMessage(id int, string string)
 	ReviveNode(id int)
 }
 
@@ -20,7 +20,7 @@ type BimodalGossiper struct{}
 
 // Gossip implementazione del bimodal multicast
 // invio l'update a tutti i nodi che conosco
-func (i BimodalGossiper) Gossip(id int) {
+func (i BimodalGossiper) GossipFault(id int) {
 
 	//decremento il numero di retry
 	if decrementNumberOfRetry(id) {
@@ -43,7 +43,7 @@ func (i BimodalGossiper) Gossip(id int) {
 
 // HandleGossipMessage funzione che viene eseguita quando ricevo un update da un nodo o
 // quando ottengo il digest di un heartbeat
-func (i BimodalGossiper) HandleGossipMessage(idSender int, message string) {
+func (i BimodalGossiper) HandleGossipFaultMessage(idSender int, message string) {
 
 	fmt.Printf("[PEER %d] BM, gossip message received from: %d, fault node: %s\n", getMyId(), idSender, message)
 	idArray := extractIdArrayFromMessage(message)
@@ -78,7 +78,7 @@ func (i BimodalGossiper) ReviveNode(id int) {
 type BlindRumorGossiper struct{}
 
 // HandleGossipMessage funzione che gestisce un update ricevuto da un altro nodo
-func (e BlindRumorGossiper) HandleGossipMessage(idSender int, message string) {
+func (e BlindRumorGossiper) HandleGossipFaultMessage(idSender int, message string) {
 
 	fmt.Printf("[PEER %d] BCRM, received gossip message from: %d fault node: %s\n", getMyId(), idSender, message)
 	//message deve contenere sempre un solo id fault
@@ -113,12 +113,12 @@ func (e BlindRumorGossiper) HandleGossipMessage(idSender int, message string) {
 		//decremento il contatore delle massime ripetizioni dell'update
 		decrementNumOfUpdateForId(faultId)
 
-		gossiper.Gossip(faultId)
+		gossiper.GossipFault(faultId)
 	}
 }
 
 // Gossip funzione che va a diffondere un update
-func (e BlindRumorGossiper) Gossip(faultId int) {
+func (e BlindRumorGossiper) GossipFault(faultId int) {
 
 	//vado a decrementare il numero di retry
 	if decrementNumberOfRetry(faultId) {
@@ -157,7 +157,7 @@ func (e BlindRumorGossiper) ReviveNode(faultId int) {
 	removeUpdate(faultId)
 }
 
-var gossiper Gossiper
+var gossiper FaultGossiper
 
 func InitGossiper() {
 	if getGossipType() == 2 {
@@ -165,4 +165,12 @@ func InitGossiper() {
 	} else {
 		gossiper = &BimodalGossiper{}
 	}
+}
+
+func handleGossipCoordinatesMessage(remoteId int, remoteRTT map[int]float64) {
+	//chiamare updateCoordinates()
+
+}
+
+func gossipCoordinate() {
 }
