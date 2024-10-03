@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"net"
 	"os"
 	"sync"
 	"time"
@@ -17,7 +16,7 @@ type node struct {
 	//ID del nodo assegnato dal service registry
 	ID int
 	//indirizzo per identificare nodo, tipo puntatore a UDPAddr
-	UDPAddr *net.UDPAddr
+	Addr string
 	//State indica lo stato in cui si trova il nodo: 0 non conosciuto, 1 attivo, 2 disattivato
 	State int
 	//distanza del nodo, -1 indica che non è conosciuto
@@ -37,18 +36,18 @@ var activeNodesMutex sync.Mutex
 var faultNodesMutex sync.Mutex
 
 // funzione che restituisce l'indirizzo UDP di un nodo della lista
-func getSelectedUDPAddress(id int) *net.UDPAddr {
+func getSelectedTCPAddress(id int) string {
 	activeNodesMutex.Lock()
 
 	for _, node := range nodesList {
 		if node.ID == id {
 			activeNodesMutex.Unlock()
-			return node.UDPAddr
+			return node.Addr
 		}
 	}
 	activeNodesMutex.Unlock()
 
-	return nil
+	return ""
 }
 
 // funzione che verifica se un nodo è presente. ritorna true se è presente, false altrimenti
@@ -82,12 +81,12 @@ func checkPresenceFaultNodesList(id int) bool {
 }
 
 // funzione che aggiunge un nodo alla lista. ritorna true se il nodo è stato aggiunto, false altrimenti
-func addActiveNode(id int, state int, UDPAddr *net.UDPAddr) {
+func addActiveNode(id int, state int, address string) {
 	if !checkPresenceActiveNodesList(id) {
 
 		currNode := node{}
 		currNode.ID = id
-		currNode.UDPAddr = UDPAddr
+		currNode.Addr = address
 		currNode.State = state
 		currNode.Distance = -1
 		currNode.ResponseTime = -1
@@ -101,7 +100,7 @@ func addActiveNode(id int, state int, UDPAddr *net.UDPAddr) {
 }
 
 // funzione che sceglie i nodi da contattare in base al valore impostato nel file di configurazione
-func getNodesToContact() []node {
+func getNodesToContact() []*node {
 	//scelta dei nodi da contattare
 	actualLen := getLenght()
 	howManyToContact := getMaxNum()
@@ -112,7 +111,7 @@ func getNodesToContact() []node {
 		howManyToContact = int(math.Ceil(sqr))
 	}
 
-	var selectedNode []node
+	var selectedNode []*node
 
 	//contatto in modo randomico
 	elemToContact := make(map[int]bool)
@@ -125,7 +124,7 @@ func getNodesToContact() []node {
 
 	//caso in cui conosco un solo nodo
 	if lenght == 1 {
-		selectedNode = append(selectedNode, nodesList[0])
+		selectedNode = append(selectedNode, &nodesList[0])
 		activeNodesMutex.Unlock()
 		return selectedNode
 	}
@@ -133,7 +132,7 @@ func getNodesToContact() []node {
 	//caso in cui la lunghezza dei nodi vivi combaci con il numero massimo da contattare
 	if lenght == howManyToContact || lenght < howManyToContact {
 		for i := 0; i < lenght; i++ {
-			selectedNode = append(selectedNode, nodesList[i])
+			selectedNode = append(selectedNode, &nodesList[i])
 		}
 		activeNodesMutex.Unlock()
 		return selectedNode
@@ -148,7 +147,7 @@ func getNodesToContact() []node {
 		_, ok := elemToContact[random]
 		if !ok && nodesList[random].State != 2 {
 			elemToContact[random] = true
-			selectedNode = append(selectedNode, nodesList[random])
+			selectedNode = append(selectedNode, &nodesList[random])
 			i++
 		} else {
 			continue
@@ -161,14 +160,14 @@ func getNodesToContact() []node {
 }
 
 // funzione che restituisce tutti i nodi a cui inviare un messaggio di multicast
-func getNodesMulticast() map[int]*net.UDPAddr {
+func getNodesMulticast() map[int]string {
 
-	idMap := make(map[int]*net.UDPAddr)
+	idMap := make(map[int]string)
 
 	activeNodesMutex.Lock()
 	lenght := getLenght()
 	for i := 0; i < lenght; i++ {
-		idMap[nodesList[i].ID] = nodesList[i].UDPAddr
+		idMap[nodesList[i].ID] = nodesList[i].Addr
 	}
 	activeNodesMutex.Unlock()
 
@@ -344,7 +343,7 @@ func printAllNodeList() {
 
 	fmt.Printf("\n[PEER %d] active nodes\n", getMyId())
 	for i := 0; i < len(nodesList); i++ {
-		fmt.Printf("nodo id: %d  stato: %d  distanza: %d \n", nodesList[i].ID, nodesList[i].State, nodesList[i].Distance)
+		fmt.Printf("nodo id: %d  stato: %d  rtt: %d distanza: %d \n", nodesList[i].ID, nodesList[i].State, nodesList[i].ResponseTime, nodesList[i].Distance)
 	}
 
 	if len(nodesList) == 0 {

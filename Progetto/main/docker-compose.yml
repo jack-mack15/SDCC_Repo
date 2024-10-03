@@ -17,7 +17,6 @@ services:
       - udp_net
     privileged: true
     ports:
-      - "8081:8081/udp"
       - "8081:8081/tcp"
     depends_on:
       - registry
@@ -32,7 +31,6 @@ services:
       - udp_net
     privileged: true
     ports:
-      - "8082:8081/udp"
       - "8082:8081/tcp"
     depends_on:
       - registry
@@ -48,7 +46,6 @@ services:
       - udp_net
     privileged: true
     ports:
-      - "8083:8081/udp"
       - "8083:8081/tcp"
     depends_on:
       - registry
@@ -65,7 +62,6 @@ services:
       - udp_net
     privileged: true
     ports:
-      - "8084:8081/udp"
       - "8084:8081/tcp"
     depends_on:
       - registry
@@ -83,7 +79,6 @@ services:
       - udp_net
     privileged: true
     ports:
-      - "8085:8081/udp"
       - "8085:8081/tcp"
     depends_on:
       - registry

@@ -61,32 +61,46 @@ func handleConnection(conn net.Conn) {
 	count := strings.Count(message, "#") + 1
 
 	parts := strings.SplitN(message, "#", count)
+	senderID := parts[0]
+	fmt.Printf("il registry ha ricevuto: %s", message)
 
-	fmt.Printf("il registry ha ricevuto: %s", parts[1])
+	if senderID == "0" {
+		//recupero indirizzo del nodo e numero porta
+		clientAddr := conn.RemoteAddr().String()
+		parts = strings.SplitN(clientAddr, ":", 2)
+		if len(parts) != 2 {
+			fmt.Println("formato della linea non valido:", clientAddr)
+		}
+		address := strings.TrimSpace(parts[0])
 
-	//recupero indirizzo del nodo e numero porta
-	clientAddr := conn.RemoteAddr().String()
-	parts = strings.SplitN(clientAddr, ":", 2)
-	if len(parts) != 2 {
-		fmt.Println("formato della linea non valido:", clientAddr)
+		port, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+		if err != nil {
+			fmt.Println("errore nella conversione:", err)
+			return
+		}
+
+		//aggiungo il nuovo nodo alla lista di nodi e aggiorno il messaggio di risposta
+		currMessage := addNode(address, port)
+
+		//rispondo al nodo che mi ha contattato con il messaggio di risposta attuale
+		_, err = conn.Write([]byte(currMessage))
+		if err != nil {
+			fmt.Println("errore invio risp:", err.Error())
+			return
+		}
+		fmt.Printf("tutto ok\n\n")
+	} else {
+		//rispondo al nodo che mi ha contattato con il messaggio di risposta attuale
+		messageMutex.Lock()
+		currMessage := senderID + messageList + "\n"
+		messageMutex.Unlock()
+		_, err = conn.Write([]byte(currMessage))
+		if err != nil {
+			fmt.Println("errore invio risp:", err.Error())
+			return
+		}
+		fmt.Printf("tutto ok\n\n")
 	}
-	address := strings.TrimSpace(parts[0])
-	port, err := strconv.Atoi(strings.TrimSpace(parts[1]))
-	if err != nil {
-		fmt.Println("errore nella conversione:", err)
-		return
-	}
-
-	//aggiungo il nuovo nodo alla lista di nodi e aggiorno il messaggio di risposta
-	currMessage := addNode(address, port)
-
-	//rispondo al nodo che mi ha contattato con il messaggio di risposta attuale
-	_, err = conn.Write([]byte(currMessage))
-	if err != nil {
-		fmt.Println("errore invio risp:", err.Error())
-		return
-	}
-	fmt.Printf("tutto ok\n\n")
 
 }
 

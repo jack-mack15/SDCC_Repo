@@ -1,41 +1,50 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"math/rand/v2"
 	"sync"
 )
 
 //file che simula il comportamento dell'algoritmo vivaldi
-//è una versione semplificata e con due coordinate
 
-// TODO cambiare questi due valori
-var ce float64
-var cc float64
+type coordinates struct {
+	X     float64 `json:"x"`
+	Y     float64 `json:"y"`
+	Z     float64 `json:"z"`
+	Error float64 `json:"error"`
+}
 
 // struttura che rappresenta le coordinate di un nodo
-type nodeCoordinate struct {
-	x, y, z   float64
-	error     float64
+type vivaldiNodeInfo struct {
+	node      coordinates
 	nodeMutex sync.Mutex
 }
 
-var nodeMapCoordinates map[int]*nodeCoordinate
+var nodeMapCoordinates map[int]*vivaldiNodeInfo
+var mapMutex sync.Mutex
 var myNodeMutex sync.Mutex
 
-var myCoord nodeCoordinate
+var myCoord coordinates
 
 // funzione che inizializza myCoord
 func initMyCoordination() {
-	myCoord.x = 0.0
-	myCoord.y = 0.0
-	myCoord.z = 0.0
-	myCoord.error = getDefError()
+	myCoord.X = 0.0
+	myCoord.Y = 0.0
+	myCoord.Z = 0.0
+	myCoord.Error = getDefError()
 
-	nodeMapCoordinates = make(map[int]*nodeCoordinate)
+	nodeMapCoordinates = make(map[int]*vivaldiNodeInfo)
 }
 
-func vivaldiAlgorithm(remoteNode *nodeCoordinate, rtt float64) {
+func vivaldiAlgorithm(remoteId int, rtt float64) {
+
+	remoteNode := getNodeCoordinates(remoteId)
+	if remoteNode == nil {
+		return
+	}
+
 	distance := euclideanDistance(remoteNode)
 	error := rtt - distance
 
@@ -43,33 +52,42 @@ func vivaldiAlgorithm(remoteNode *nodeCoordinate, rtt float64) {
 	direction := getDirection(remoteNode, distance)
 
 	//aggiornamento coordinate
-	myCoord.x += delta * error * direction[0]
-	myCoord.y += delta * error * direction[1]
-	myCoord.z += delta * error * direction[2]
-
+	myCoord.X += delta * error * direction[0]
+	myCoord.Y += delta * error * direction[1]
+	myCoord.Z += delta * error * direction[2]
 }
 
 // fuzione che calcola la distanza euclidea di un nodo
-func euclideanDistance(remoteNode *nodeCoordinate) float64 {
-	xDiff := myCoord.x - remoteNode.x
-	yDiff := myCoord.y - remoteNode.y
-	zDiff := myCoord.z - remoteNode.z
+func euclideanDistance(remoteNode *vivaldiNodeInfo) float64 {
+	myNodeMutex.Lock()
+	xDiff := myCoord.X - remoteNode.node.X
+	yDiff := myCoord.Y - remoteNode.node.Y
+	zDiff := myCoord.Z - remoteNode.node.Z
+	myNodeMutex.Unlock()
 	distance := math.Sqrt(math.Pow(xDiff, 2) + math.Pow(yDiff, 2) + math.Pow(zDiff, 2))
 	return distance
 }
 
-func computeAdaptiveTimeStep(remoteNode *nodeCoordinate, rtt float64, distance float64) float64 {
+func computeAdaptiveTimeStep(remoteNode *vivaldiNodeInfo, rtt float64, distance float64) float64 {
 
-	relatError := math.Abs(rtt-distance) / rtt
+	relatError := 0.0
+
+	if distance == 0 && rtt == 0 {
+		relatError = 1.0
+	} else if rtt == 0 {
+		rtt = 10
+	} else {
+		relatError = math.Abs(rtt-distance) / rtt
+	}
 
 	//TODO aggiungere i mutex sui nodi locale e remoto
-	weight := myCoord.error / (myCoord.error + remoteNode.error)
-	myCoord.error = (myCoord.error * (1 - ce*weight)) + (weight * relatError * ce)
+	weight := myCoord.Error / (myCoord.Error + remoteNode.node.Error)
+	myCoord.Error = (myCoord.Error * (1 - getPrecWeight()*weight)) + (weight * relatError * getPrecWeight())
 
-	return cc * weight
+	return getScaleFact() * weight
 }
 
-func getDirection(remoteNode *nodeCoordinate, distance float64) []float64 {
+func getDirection(remoteNode *vivaldiNodeInfo, distance float64) []float64 {
 
 	var direction []float64
 
@@ -84,9 +102,64 @@ func getDirection(remoteNode *nodeCoordinate, distance float64) []float64 {
 		direction = append(direction, zRand/norm)
 		return direction
 	} else {
-		direction = append(direction, (myCoord.x-remoteNode.x)/distance)
-		direction = append(direction, (myCoord.y-remoteNode.y)/distance)
-		direction = append(direction, (myCoord.z-remoteNode.z)/distance)
+		direction = append(direction, (myCoord.X-remoteNode.node.X)/distance)
+		direction = append(direction, (myCoord.Y-remoteNode.node.Y)/distance)
+		direction = append(direction, (myCoord.Z-remoteNode.node.Z)/distance)
 		return direction
 	}
+}
+
+func addCoordinateToMap(remoteId int, remoteCoor coordinates) {
+	mapMutex.Lock()
+	//se il nodo è già presente
+	if elem, ok := nodeMapCoordinates[remoteId]; ok {
+		elem.nodeMutex.Lock()
+		elem.node = remoteCoor
+		elem.nodeMutex.Unlock()
+		mapMutex.Unlock()
+		return
+	} else {
+		// se il nodo non è presente
+		var newNode vivaldiNodeInfo
+		newNode.node = remoteCoor
+		nodeMapCoordinates[remoteId] = &newNode
+		mapMutex.Unlock()
+	}
+}
+
+func removeNode(remoteId int) {
+	mapMutex.Lock()
+	if _, ok := nodeMapCoordinates[remoteId]; ok {
+		delete(nodeMapCoordinates, remoteId)
+	}
+	mapMutex.Unlock()
+}
+
+func getNodeCoordinates(id int) *vivaldiNodeInfo {
+	mapMutex.Lock()
+
+	if elem, ok := nodeMapCoordinates[id]; ok {
+		mapMutex.Unlock()
+		return elem
+	}
+
+	mapMutex.Unlock()
+	return nil
+}
+
+func getMyCoordinate() coordinates {
+	return myCoord
+}
+
+func printAllCoordinates() {
+	mapMutex.Lock()
+
+	fmt.Printf("my coord, coordinate: %.2f, %.2f, %.2f\n", myCoord.X, myCoord.Y, myCoord.Z)
+	for key, value := range nodeMapCoordinates {
+		fmt.Printf("nodo: %d, coordinate: %.2f, %.2f, %.2f\n", key, value.node.X, value.node.Y, value.node.Z)
+	}
+
+	fmt.Println()
+
+	mapMutex.Unlock()
 }

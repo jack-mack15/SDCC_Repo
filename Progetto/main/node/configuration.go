@@ -13,14 +13,19 @@ import (
 // valore di default per l'errore delle coordinate
 var defError float64
 
+// precision weight
+var precWeight float64
+
+// scale factor
+var scaleFact float64
+
 // ID del nodo attuale
 var myId int
 
 // numero di porta su cui sono in ascolto
 var myPort int
 
-// indirizzo sotto forma di UDPAddr e TCPAddr
-var ownUDPAddress *net.UDPAddr
+// indirizzo sotto forma di TCPAddr
 var ownTCPAddress *net.TCPAddr
 
 // RTT default per nodi che non ho mai contattato
@@ -126,6 +131,17 @@ func readConfigFile() int {
 		fmt.Println("readConfigFile()--> errore nella conversione:", err)
 		return 0
 	}
+	//lettura scale factor
+	scaleFact, err = strconv.ParseFloat(data["scale_factor"], 64)
+	if err != nil {
+		fmt.Println("readConfigFile()--> errore nella conversione:", err)
+		return 0
+	}
+	//lettura precision weight
+	precWeight, err = strconv.ParseFloat(data["prec_weight"], 64)
+	if err != nil {
+		fmt.Println("readConfigFile()--> errore nella conversione:", err)
+	}
 	//lettura my port
 	myPort, err = strconv.Atoi(data["my_port"])
 	if err != nil {
@@ -139,7 +155,7 @@ func readConfigFile() int {
 		return 0
 	}
 	//lettura rttMult
-	rttMult, err = strconv.ParseFloat(data["rttMult"], 64)
+	rttMult, err = strconv.ParseFloat(data["rtt_mult"], 64)
 	if err != nil {
 		fmt.Println("readConfigFile()--> errore nella conversione rttMult:", err)
 		return 0
@@ -336,11 +352,15 @@ func checkParameters() bool {
 
 	return true
 }
+
+func getScaleFact() float64 {
+	return scaleFact
+}
+func getPrecWeight() float64 {
+	return precWeight
+}
 func getMyPort() int {
 	return myPort
-}
-func setOwnUDPAddr(UDPAddr *net.UDPAddr) {
-	ownUDPAddress = UDPAddr
 }
 func setOwnTCPAddr(TCPAddr *net.TCPAddr) {
 	ownTCPAddress = TCPAddr
@@ -349,9 +369,6 @@ func getGossipType() int {
 	return gossipType
 }
 func getDefError() float64 { return defError }
-func getOwnUDPAddr() *net.UDPAddr {
-	return ownUDPAddress
-}
 func getOwnTCPAddr() *net.TCPAddr {
 	return ownTCPAddress
 }

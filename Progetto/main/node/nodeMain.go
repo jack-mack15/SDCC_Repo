@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -34,21 +35,22 @@ func main() {
 	if err3 != nil {
 		return
 	}
+	time.Sleep(2 * time.Second)
 
 	ownIP := localAddr.IP
-	setOwnUDPAddr(&net.UDPAddr{IP: ownIP, Port: getMyPort()})
-	setOwnTCPAddr(&net.TCPAddr{IP: ownIP, Port: getMyPort()})
+	setOwnTCPAddr(&net.TCPAddr{IP: ownIP, Port: getMyPort() + getMyId()})
 
 	tryContactRegistry()
 
-	initLogFile()
-
-	//sleep per dare tempo a netem di assegnare i ritardi o tirare su la rete
-	time.Sleep(5 * time.Second)
+	//initLogFile()
 
 	//avvio della goroutine di ricezione
 	go receiverHandler()
 
+	//sleep per dare tempo a netem di assegnare i ritardi o tirare su la rete
+	time.Sleep(8 * time.Second)
+
+	counter := 0
 	//FASE ATTIVA
 	for {
 		//scelgo i nodi da contattare
@@ -58,12 +60,25 @@ func main() {
 
 		time.Sleep(time.Duration(getHBDelay()) * time.Millisecond)
 
-		printAllNodeList()
+		counter++
+		if counter == 10 {
+			printAllNodeList()
+			printAllCoordinates()
+			counter = 0
+		}
 
 		activeNodeLenght := getLenght()
 		if activeNodeLenght == 0 {
 			tryLazzarus()
 		}
+
+		//TODO ci sta qualche problema con il marshal e unmarshal
+		//in sendVivaldiMessage() alla fine devo fare la robba per avviare vivaldi
+		//handleUDP è a posto
+		//devo aggiungere le funzioni per gestire i nodi coordinate degli altri nodi
+		//in modo tale che poi vivaldi algorithm viene avviato tranquillamente
+		//collegare tutte le liste di nodi, quelli delle coordinate, quelli di nodeClass e quelli di digest/blind struct
+		//modificare l'invio dei messaggi di gossip
 
 		//TODO se devo cambiare il tutto devo fare il seguente
 		//TODO contact node fa anti entropy con 1 o più nodi
@@ -80,34 +95,33 @@ func main() {
 // funzione che smista le richieste di connessioni da parte di altri nodi
 func receiverHandler() {
 
-	conn, err := net.ListenUDP("udp", getOwnUDPAddr())
+	listener, err := net.Listen("tcp", ":"+strconv.Itoa(getMyPort()))
 	if err != nil {
-		fmt.Println("receiverHandler()--> errore creazione listener UDP:", err)
+		fmt.Println("reciverHandler()--> errore durante l'ascolto:", err.Error())
 		return
 	}
 	defer func() {
-		if err := conn.Close(); err != nil {
-			log.Printf("Errore nella chiusura della connessione: %v", err)
+		if err := listener.Close(); err != nil {
+			log.Printf("errore nella chiusura della connessione: %v", err)
 		}
 	}()
 
 	for {
-		buffer := make([]byte, 128)
 
-		n, remoteUDPAddr, err := conn.ReadFromUDP(buffer)
+		conn, err := listener.Accept()
 		if err != nil {
 			fmt.Println("receiverHandler()--> errore lettura pacchetto:", err)
 			continue
 		}
-
-		go handleUDPMessage(conn, remoteUDPAddr, buffer[:n])
+		go handleUDPHandler(conn)
 
 	}
+
 }
 
 // funzione che va a contattare i nodi della lista per vedere se sono attivi
 // sceglie i nodi e poi invoca sendHeartBeat()
-func contactNode(selectedNodes []node) {
+func contactNode(selectedNodes []*node) {
 
 	//contatto i nodi
 	lenght := len(selectedNodes)
@@ -116,7 +130,8 @@ func contactNode(selectedNodes []node) {
 
 	for i := 0; i < lenght; i++ {
 		wg.Add(1)
-		go sendHeartbeat(selectedNodes[i], getMyId(), &wg)
+
+		go sendVivaldiMessage(selectedNodes[i], &wg)
 	}
 	wg.Wait()
 

@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"strconv"
@@ -15,8 +14,9 @@ import (
 // volte pari a maxRetry
 func tryContactRegistry() {
 
+	setMyId(-1)
 	//contatto il registry
-	sdResponseString := contact(getOwnTCPAddr(), getSDInfoString())
+	sdResponseString := contact(getSDInfoString())
 
 	retry := 0
 	howMany := 0
@@ -29,33 +29,27 @@ func tryContactRegistry() {
 			retry++
 			time.Sleep(5 * time.Second)
 
-			sdResponseString = contact(getOwnTCPAddr(), getSDInfoString())
+			sdResponseString = contact(getSDInfoString())
 		}
 	}
 }
 
 // funzione che effettua il contatto con il service registry
-func contact(localAddr *net.TCPAddr, addr string) string {
+func contact(addr string) string {
 
-	//ottengo l'indirizzo del service registry
-	remoteAddr, err := net.ResolveTCPAddr("tcp", addr)
-	if err != nil {
-		log.Printf("errore ottenimento indirizzo di %s: %v", addr, err)
-	}
-
-	conn, err := net.DialTCP("tcp", localAddr, remoteAddr)
+	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		fmt.Println("errore connessione:", err.Error())
 		os.Exit(1)
 	}
+	defer conn.Close()
 
-	defer func() {
-		if err := conn.Close(); err != nil {
-			log.Printf("Errore nella chiusura della connessione: %v", err)
-		}
-	}()
-
-	message := "0#hello registry\n"
+	message := ""
+	if getMyId() == -1 {
+		message = "0#hello registry\n"
+	} else {
+		message = strconv.Itoa(getMyId()) + "#hello registry\n"
+	}
 
 	// Invio del messaggio al server
 	_, err = conn.Write([]byte(message))
@@ -83,12 +77,16 @@ func extractNodeList(str string) int {
 
 	//se sono il primo della rete count == 0
 	if count == 0 {
+		cleanStr := strings.TrimSpace(str)
+		temp, _ := strconv.Atoi(cleanStr)
+		setMyId(temp)
 		return nodeCount
 	}
 
 	count++
 
 	parts := strings.SplitN(str, "#", count)
+
 	myId, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
 	setMyId(myId)
 
@@ -105,12 +103,10 @@ func extractNodeList(str string) int {
 		}
 
 		currStrAddr := strings.TrimSpace(currNodeParts[1])
-		currUDPAddr, err := net.ResolveUDPAddr("udp", currStrAddr)
-		if err != nil {
-			log.Printf("extractNodeList()---> errore risoluzione indirizzo remoto %s: %v", currStrAddr, err)
-		}
-
-		addActiveNode(currId, 0, currUDPAddr)
+		currStrParts := strings.Split(currStrAddr, ":")
+		strIp := currStrParts[0]
+		strPort := strconv.Itoa(getMyPort())
+		addActiveNode(currId, 0, strIp+":"+strPort)
 		nodeCount++
 
 	}

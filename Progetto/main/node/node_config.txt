@@ -2,14 +2,19 @@
 #modificato durante il ciclo di vita del nodo.
 def_error=1.0
 
+#scale factor per l'algoritmo di vivaldi, impatta l'aggiornamento delle coordinate
+scale_factor=0.1
+
+#precision weight, impatta il calcolo dell'errore e di conseguenza l'aggiornamento
+prec_weight=0,25
+
 #RTT espresso in millisecondi di default per nodi di cui non si conosce la distanza
 #valore compreso tra 0 e 1000
-def_RTT=500
+def_RTT=200
 
 #valore che indica il massimo valore che può assumere una componente delle coordinate.
 #il valore consigliato è 200.0. deve essere un float positivo differente da 0.0
 max_coord_value=200.0
-
 
 #parametro che indica il moltiplicatore per il calcolo del timer dell'heartbeat. viene moltiplicato
 #al precedente tempo di risposta del nodo da contattare
@@ -17,7 +22,7 @@ max_coord_value=200.0
 rtt_mult=3.0
 
 #tempo in millisecondi tra due iterazioni di invio di heartbeat
-hb_delay=8000
+hb_delay=200
 
 #numero di nodi che un singolo nodo può contattare ad ogni iterazione
 #questo parametro non si riferisce ai parametri di gossip, ma alla diffusione degli heartbeat
@@ -31,7 +36,7 @@ gossip_type=1
 
 #intervallo (in millisecondi) tra iterazioni di blind counter gossip per lo stesso update
 #intero positivo
-gossip_interval=2000
+gossip_interval=500
 
 #parametro B del blind rumor mongering, indica il numero massimo di nodi vicini
 #a cui si inoltra un update. deve essere un intero positivo
@@ -44,7 +49,7 @@ max_iter=2
 
 #parametro che indica quanti retry massimi bisogna effettuare prima di assumere un nodo sia fault
 #un intero maggiore di 0
-max_retry=1
+max_retry=3
 
 #parametro che stabilisce se usare il max tra tempo di risposta attuale e quello precedente
 #tempo di risposta di un nodo contattato
