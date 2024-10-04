@@ -1,7 +1,6 @@
 package main
 
 //codes:
-//0 per ack
 //1 per vivaldi message
 //2 per vivaldi response
 //3 per gossip message
@@ -9,17 +8,12 @@ package main
 
 // messaggio per vivaldi algorithm
 type VivaldiMessage struct {
-	Code        int         `json:"code"`
-	IdSender    int         `json:"idsender"`
-	PortSender  int         `json:"port"`
-	Coordinates coordinates `json:"coord"`
-	Digest      string      `json:"digest"`
-}
-
-// messaggio per segnalare la corretta attività
-type SimpleAck struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	Code        int                 `json:"code"`
+	IdSender    int                 `json:"idsender"`
+	PortSender  int                 `json:"port"`
+	Coordinates coordinates         `json:"coord"`
+	MapCoor     map[int]coordinates `json:"map"`
+	Digest      string              `json:"digest"`
 }
 
 // messaggio di gossip per blind counter rumor
@@ -41,11 +35,12 @@ func writeGossipMessage(faultId int) GossipMessage {
 	return message
 }
 
-// funzione che compila il messaggio di semplice ack
-func writeSimpleAck() SimpleAck {
-	var message SimpleAck
-	message.Code = 0
-	message.Message = "hello"
+// funzion eche serve per scrivere un messaggio di Gossip solo per il digest
+func writeGossipDigestMessage(senderId int, digest string) GossipMessage {
+	var message GossipMessage
+	message.Code = 4
+	message.IdSender = senderId
+	message.Digest = digest
 	return message
 }
 
@@ -67,7 +62,13 @@ func writeVivaldiMessage() VivaldiMessage {
 		message.Digest = getDigest()
 		return message
 	}
-
+	message.MapCoor = nil
 	message.Digest = ""
+	return message
+}
+
+func writeVivaldiResponse(idSender int) VivaldiMessage {
+	message := writeVivaldiMessage()
+	message.MapCoor = getRandomNodes(idSender)
 	return message
 }

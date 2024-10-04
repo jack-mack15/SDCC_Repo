@@ -5,6 +5,7 @@ package main
 
 import (
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -37,8 +38,11 @@ func getDigest() string {
 	digest := ""
 
 	for i := 0; i < len(offlineNodes); i++ {
+		if i != 0 {
+			digest += "/"
+		}
 		stringElem := strconv.Itoa(offlineNodes[i])
-		digest = digest + "/" + stringElem
+		digest = digest + stringElem
 	}
 
 	offlineNodesMutex.Unlock()
@@ -90,4 +94,23 @@ func updateOfflineNodes(idArray []int) {
 		addOfflineNode(idArray[i])
 		updateNodeStateToFault(idArray[i])
 	}
+}
+
+// funzione di ausilio che mi trasforma il contenuto di un messaggio di gossip da stringa a array di interi
+func extractIdArrayFromMessage(digest string) []int {
+	var array []int
+
+	if digest == "" {
+		return array
+	}
+
+	count := strings.Count(digest, "/") + 1
+	arrayElems := strings.SplitN(digest, "/", count)
+
+	for i := 0; i < count; i++ {
+		currId, _ := strconv.Atoi(arrayElems[i])
+		array = append(array, currId)
+	}
+
+	return array
 }

@@ -13,7 +13,7 @@ import (
 func main() {
 
 	//SET UP del nodo
-	err := readConfigFile()
+	err := readEnvVariable()
 	if err == 0 {
 		fmt.Println("errore nel recupero del file di conf")
 		return
@@ -24,25 +24,8 @@ func main() {
 
 	//inizializzo le mie coordinate
 	initMyCoordination()
-
-	//recupero il mio indirizzo ip
-	conn, err2 := net.Dial("udp", "8.8.8.8:80")
-	if err2 != nil {
-		panic(err2)
-	}
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	err3 := conn.Close()
-	if err3 != nil {
-		return
-	}
-	time.Sleep(2 * time.Second)
-
-	ownIP := localAddr.IP
-	setOwnTCPAddr(&net.TCPAddr{IP: ownIP, Port: getMyPort() + getMyId()})
-
+	//contatto il registry
 	tryContactRegistry()
-
-	//initLogFile()
 
 	//avvio della goroutine di ricezione
 	go receiverHandler()
@@ -61,7 +44,7 @@ func main() {
 		time.Sleep(time.Duration(getHBDelay()) * time.Millisecond)
 
 		counter++
-		if counter == 10 {
+		if counter == getPrintCounter() {
 			printAllNodeList()
 			printAllCoordinates()
 			counter = 0
@@ -71,24 +54,6 @@ func main() {
 		if activeNodeLenght == 0 {
 			tryLazzarus()
 		}
-
-		//TODO ci sta qualche problema con il marshal e unmarshal
-		//in sendVivaldiMessage() alla fine devo fare la robba per avviare vivaldi
-		//handleUDP è a posto
-		//devo aggiungere le funzioni per gestire i nodi coordinate degli altri nodi
-		//in modo tale che poi vivaldi algorithm viene avviato tranquillamente
-		//collegare tutte le liste di nodi, quelli delle coordinate, quelli di nodeClass e quelli di digest/blind struct
-		//modificare l'invio dei messaggi di gossip
-
-		//TODO se devo cambiare il tutto devo fare il seguente
-		//TODO contact node fa anti entropy con 1 o più nodi
-		//TODO send heartbeat deve inviare le proprie coordinate, error e un tot di rtt di altri nodi
-		//TODO handleUDP deve avviare gli aggiornamenti delle coordinate
-
-		//TODO controllare tutta la robba da eliminare
-
-		//TODO sistemazione del codice
-
 	}
 }
 

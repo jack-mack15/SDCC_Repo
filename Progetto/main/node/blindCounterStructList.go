@@ -183,7 +183,7 @@ func getNodesToNotify(faultId int) []int {
 	return nodesToNotifyList
 }
 
-// funzione che restituisce b nodi da contattare in modo randomico
+// funzione che restituisce maxNeigh nodi da contattare in modo randomico
 func randomBlindCounterSelection(idArray []int) []int {
 	//mutex lockato dal chiamante
 	elemToContact := make(map[int]bool)

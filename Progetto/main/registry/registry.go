@@ -17,7 +17,7 @@ type nodeInfo struct {
 }
 
 var listMutex sync.Mutex
-var messageMutex sync.Mutex
+var messageListMutex sync.Mutex
 
 var nodeList []nodeInfo
 var messageList string
@@ -91,9 +91,9 @@ func handleConnection(conn net.Conn) {
 		fmt.Printf("tutto ok\n\n")
 	} else {
 		//rispondo al nodo che mi ha contattato con il messaggio di risposta attuale
-		messageMutex.Lock()
+		messageListMutex.Lock()
 		currMessage := senderID + messageList + "\n"
-		messageMutex.Unlock()
+		messageListMutex.Unlock()
 		_, err = conn.Write([]byte(currMessage))
 		if err != nil {
 			fmt.Println("errore invio risp:", err.Error())
@@ -131,10 +131,10 @@ func addNode(addr string, port int) string {
 	nodeList = append(nodeList, currNode)
 	listMutex.Unlock()
 
-	messageMutex.Lock()
+	messageListMutex.Lock()
 	currMessage := strconv.Itoa(id) + messageList + "\n"
 	messageList = messageList + "#" + strconv.Itoa(id) + "/" + addr + ":" + strconv.Itoa(port)
-	messageMutex.Unlock()
+	messageListMutex.Unlock()
 
 	return currMessage
 

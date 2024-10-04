@@ -90,6 +90,8 @@ func extractNodeList(str string) int {
 	myId, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
 	setMyId(myId)
 
+	setIgnoreIds()
+
 	for i := 1; i < count; i++ {
 
 		currNodeInfo := strings.TrimSpace(parts[i])
@@ -101,12 +103,16 @@ func extractNodeList(str string) int {
 		if currId == myId {
 			continue
 		}
+		if checkIgnoreId(currId) {
+			continue
+		}
 
 		currStrAddr := strings.TrimSpace(currNodeParts[1])
 		currStrParts := strings.Split(currStrAddr, ":")
 		strIp := currStrParts[0]
 		strPort := strconv.Itoa(getMyPort())
 		addActiveNode(currId, 0, strIp+":"+strPort)
+		addElemToMap(currId)
 		nodeCount++
 
 	}

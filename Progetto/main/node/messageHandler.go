@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -19,34 +18,43 @@ func handleUDPHandler(conn net.Conn) {
 	remoteAddr := conn.RemoteAddr()
 	remoteTCPAddr, ok := remoteAddr.(*net.TCPAddr)
 	if !ok {
-		fmt.Println("Errore durante la conversione dell'indirizzo locale a TCPAddr")
+		fmt.Println("handleUDPHandler()--> errore durante la conversione dell'indirizzo locale a TCPAddr")
 	}
 
 	decoder := json.NewDecoder(conn)
 
-	//devo capire quale tipo di messaggio ho ricevuto
-	var dummy map[string]interface{}
-	err := decoder.Decode(&dummy)
-	if err == io.EOF {
-		fmt.Println("Connessione chiusa dal client.")
+	//imposto un timeout per la Decode()
+	decodeTimeout := time.Duration(getDefRTT()) * time.Millisecond
+	decodeErr := conn.SetReadDeadline(time.Now().Add(decodeTimeout))
+	if decodeErr != nil {
+		fmt.Printf("Errore durante l'impostazione del timeout: %v\n", decodeErr)
 		return
 	}
-	if err != nil {
-		log.Printf("Errore durante la decodifica del messaggio: %v", err)
+
+	//devo capire quale tipo di messaggio ho ricevuto
+	var dummy map[string]interface{}
+	decodeErr = decoder.Decode(&dummy)
+	if netErr, ok := decodeErr.(net.Error); ok && netErr.Timeout() {
+		fmt.Println("handleUDPHandler()--> Decode() timeout scaduto")
+		return
+	} else if decodeErr == io.EOF {
+		fmt.Println("handleUDPHandler()--> connessione chiusa dal client")
+		return
+	} else if decodeErr != nil {
+		log.Printf("handleUDPHandler()--> errore durante decodifica messaggio: %v", decodeErr)
 		return
 	}
 
 	// Controlla il tipo di messaggio ricevuto
 	messageTypeFloat, ok := dummy["code"].(float64)
 	if !ok {
-		log.Println("Messaggio ricevuto senza campo 'type'.")
+		log.Println("handleUDPHandler()--> messaggio ricevuto senza campo 'type'.")
 		return
 	}
 	messageType := int(messageTypeFloat)
 
 	switch messageType {
 	case 1:
-		fmt.Printf("ENTRO NEL CASE 1\n")
 		var message VivaldiMessage
 		err := mapToStruct(dummy, &message)
 		if err != nil {
@@ -57,7 +65,6 @@ func handleUDPHandler(conn net.Conn) {
 
 	case 3:
 
-		fmt.Printf("ENTRO NEL CASE 3\n")
 		var message GossipMessage
 		err := mapToStruct(dummy, &message)
 		if err != nil {
@@ -66,7 +73,6 @@ func handleUDPHandler(conn net.Conn) {
 		}
 		gossiper.HandleGossipFaultMessage(message.IdSender, message)
 	case 4:
-		fmt.Printf("ENTRO NEL CASE 4\n")
 		var message VivaldiMessage
 		err := mapToStruct(dummy, &message)
 		if err != nil {
@@ -104,6 +110,8 @@ func handleNodeInfo(idSender int, remotePort int, remoteTCPAddr *net.TCPAddr) {
 
 		//aggiungo il nodo. se fosse già presente addActiveNode() non lo aggiunge
 		addActiveNode(idSender, 1, remoteAddr)
+		//aggiungo il nodo alla map delle coordinate se non è presente
+		addElemToMap(idSender)
 	} else {
 		//aggiorno numero di retry e stato
 		resetRetryNumber(idSender)
@@ -115,16 +123,15 @@ func vivaldiMessageHandler(conn net.Conn, remoteTCPAddr *net.TCPAddr, message Vi
 
 	//se è presente un digest allora lo vado a gestire
 	if isDigest {
-		var tempMessage GossipMessage
-		tempMessage.Digest = message.Digest
-		go gossiper.HandleGossipFaultMessage(message.IdSender, tempMessage)
+		tempMess := writeGossipDigestMessage(message.IdSender, message.Digest)
+		go gossiper.HandleGossipFaultMessage(message.IdSender, tempMess)
 	}
 
 	//verifico se conosco il nodo, in caso aggiungo tutte le info necessarie
 	handleNodeInfo(message.IdSender, message.PortSender, remoteTCPAddr)
 
 	//inviare dati per il sender
-	response := writeVivaldiMessage()
+	response := writeVivaldiResponse(message.IdSender)
 
 	data, err := json.Marshal(response)
 
@@ -138,12 +145,7 @@ func vivaldiMessageHandler(conn net.Conn, remoteTCPAddr *net.TCPAddr, message Vi
 		fmt.Printf("Errore durante l'invio dei dati: %v\n", err)
 		return
 	}
-	//aggiungo un \n
-	//_, err = conn.Write([]byte("\n"))
-	//if err != nil {
-	//	fmt.Printf("Errore durante l'invio di newline: %v\n", err)
-	//	return
-	//}
+	time.Sleep(1 * time.Second)
 }
 
 func sendVivaldiMessage(singleNode *node, wg *sync.WaitGroup) {
@@ -170,24 +172,29 @@ func sendVivaldiMessage(singleNode *node, wg *sync.WaitGroup) {
 
 	fmt.Printf("[PEER %d] sending vivaldi message to: %d\n", getMyId(), singleNode.ID)
 
-	//provo ad instaurare una connessione
-	conn, err := net.Dial("tcp", singleNode.Addr)
-	if err != nil {
-		fmt.Printf("sendVivaldiMessage()--> errore durante la connessione: %v\n", err)
-		go gossiper.GossipFault(singleNode.ID)
+	//genero un timeout per la dialtimeout
+	timeout := time.Duration(float64(precResponseTime)*getRttMult()) * time.Millisecond
+
+	//inizio a misurare il rtt
+	startTime := time.Now()
+
+	// Provo ad instaurare una connessione con timeout
+	conn, timeOutErr := net.DialTimeout("tcp", singleNode.Addr, timeout)
+	if timeOutErr != nil {
+		// Verifica se l'errore è un errore di rete
+		if netErr, ok := timeOutErr.(net.Error); ok && netErr.Timeout() {
+			fmt.Printf("sendVivaldiMessage()--> timeout scaduto per %d\n", singleNode.ID)
+			go gossiper.GossipFault(singleNode.ID)
+		} else {
+			fmt.Printf("sendVivaldiMessage()--> errore durante la connessione: %v\n", timeOutErr)
+		}
 		return
 	}
 	defer conn.Close()
 
-	//timer per interrompe l'attesa di risposta in caso di problemi
-	//timerErr := conn.SetReadDeadline(time.Now().Add(time.Millisecond * time.Duration(float64(precResponseTime)*getRttMult())))
-	//if timerErr != nil {
-	//	log.Printf("sendVivaldiMessage()--> errore durante impostazione timeout ricezione: %v", err)
-	//	return
-	//}
-
-	// Inizio timer per misurare il RTT
-	startTime := time.Now()
+	//prendo il rempo di risposta
+	actualRTT := time.Since(startTime).Milliseconds()
+	singleNode.ResponseTime = int(actualRTT)
 
 	// Invio messaggio Vivaldi
 	_, err = conn.Write(data)
@@ -197,56 +204,75 @@ func sendVivaldiMessage(singleNode *node, wg *sync.WaitGroup) {
 	}
 
 	//ricezione risposta
-	buffer := make([]byte, 1024)
-	n, err := conn.Read(buffer)
+	buffer := make([]byte, 16*1024)
+	//inizio timer per la Read(), sfrutto il tempo calcolato sopra
+	err = conn.SetReadDeadline(time.Now().Add(timeout * 2))
 	if err != nil {
-		log.Printf("sendVivaldiMessage()--> errore ricezione messaggio: %v", err)
+		fmt.Printf("sendVivaldiMessage()--> errore durante l'impostazione del timeout: %v\n", err)
 		return
 	}
 
-	//resetto il timer se ho ricevuto il messaggio
-	//err = conn.SetReadDeadline(time.Time{})
-	//if err != nil {
-	//	log.Printf("sendVivaldiMessage()--> errore durante reset timeout: %v", err)
-	//	return
-	//}
-
-	//prendo il rempo di risposta
-	actualRTT := time.Since(startTime).Milliseconds()
-	singleNode.ResponseTime = int(actualRTT)
+	n, readErr := conn.Read(buffer)
+	if netErr, ok := readErr.(net.Error); ok && netErr.Timeout() {
+		fmt.Println("sendVivaldiMessage()--> Read() timeout scaduto")
+		go gossiper.GossipFault(singleNode.ID)
+		return
+	} else if readErr != nil {
+		log.Printf("sendVivaldiMessage()--> errore ricezione messaggio: %v", readErr)
+		return
+	}
 
 	//ricostruisco la struttura dati
 	var infoMessage VivaldiMessage
-	err = json.Unmarshal(buffer[:n], &infoMessage)
-	if err != nil {
-		log.Println("sendVivaldiMessage()--> errore decodifica vivaldi response: ", err)
+	errUnmarshal := json.Unmarshal(buffer[:n], &infoMessage)
+	if errUnmarshal != nil {
+		log.Println("sendVivaldiMessage()--> errore decodifica vivaldi response: ", errUnmarshal)
 		return
 	}
 
 	//aggiungo il nodo se non presente
-	addCoordinateToMap(infoMessage.IdSender, infoMessage.Coordinates)
+	addCoordinateToMap(infoMessage.IdSender, infoMessage.Coordinates, float64(actualRTT))
+
+	//aggiungo le coordinate di altri nodi alla mia map
+	for id, value := range infoMessage.MapCoor {
+		fmt.Printf("[PEER %d] info aggiuntive su %d\n", getMyId(), id)
+		addCoordinateToMap(id, value, value.LastRTT)
+		if checkIgnoreId(id) {
+			unreachableHandler(infoMessage.IdSender, id, value)
+		}
+	}
 
 	//eseguo vivaldi
-	fmt.Printf("coordinate ricevute: %.2f, %.2f, %.2f\n", infoMessage.Coordinates.X, infoMessage.Coordinates.Y, infoMessage.Coordinates.Z)
 	vivaldiAlgorithm(infoMessage.IdSender, float64(actualRTT))
 
 	//aggiorno stato del nodo
-	updateNodeDistance(infoMessage.IdSender, 1, int(actualRTT), 1)
-
-	fmt.Printf("sendVivaldiMessage()--> tutto ok\n")
+	updateNodeDistance(infoMessage.IdSender, 1, int(actualRTT))
 }
 
 // funzione che invia gli update per il bimodal multicast gossip
-func sendMulticastMessage(message []byte, remoteAddr string) {
+func sendMulticastMessage(id int, message []byte, remoteAddr string) {
 
-	conn, err := net.Dial("tcp", remoteAddr)
-	if err != nil {
-		fmt.Println("errore connessione:", err.Error())
+	//recupero il tempo di risposta attes
+	responseTime := getNodeRtt(id)
+	//genero un timeout per la dialtimeout
+	timeout := time.Duration(float64(responseTime)*getRttMult()) * time.Millisecond
+
+	//provo ad instaurare una connessione con timeout
+	conn, timeOutErr := net.DialTimeout("tcp", remoteAddr, timeout)
+
+	if timeOutErr != nil {
+		//verico se l'errore è un errore di rete, quindi dovuto al timeout
+		if netErr, ok := timeOutErr.(net.Error); ok && netErr.Timeout() {
+			fmt.Printf("sendMulticastMessage()--> timeout scaduto per %s\n", remoteAddr)
+			go gossiper.GossipFault(id)
+		} else {
+			fmt.Printf("sendMulticastMessage()--> errore durante la connessione: %v\n", timeOutErr)
+		}
 		return
 	}
 	defer conn.Close()
 
-	_, err = conn.Write(message)
+	_, err := conn.Write(message)
 	if err != nil {
 		fmt.Println("sendMulticastMessage()--> errore durante invio messaggio:", err)
 		return
@@ -255,40 +281,31 @@ func sendMulticastMessage(message []byte, remoteAddr string) {
 
 // funzione che invia i messaggi per il blind counter rumor mongering
 func sendBlindCounterGossipMessage(message []byte, toNotifyId int) {
+	//recupero indirizzo
 	remoteAddr := getSelectedTCPAddress(toNotifyId)
-	conn, err := net.Dial("tcp", remoteAddr)
-	if err != nil {
-		fmt.Println("errore connessione:", err.Error())
+	//recupero il tempo di risposta attes
+	responseTime := getNodeRtt(toNotifyId)
+	//genero un timeout per la dialtimeout
+	timeout := time.Duration(float64(responseTime)*getRttMult()) * time.Millisecond
+
+	//provo ad instaurare una connessione con timeout
+	conn, timeOutErr := net.DialTimeout("tcp", remoteAddr, timeout)
+
+	if timeOutErr != nil {
+		//verico se l'errore è un errore di rete, quindi dovuto al timeout
+		if netErr, ok := timeOutErr.(net.Error); ok && netErr.Timeout() {
+			fmt.Printf("sendMulticastMessage()--> timeout scaduto per %s\n", remoteAddr)
+			go gossiper.GossipFault(toNotifyId)
+		} else {
+			fmt.Printf("sendMulticastMessage()--> errore durante la connessione: %v\n", timeOutErr)
+		}
 		return
 	}
-	defer func() {
-		if err := conn.Close(); err != nil {
-			log.Printf("Errore nella chiusura della connessione: %v", err)
-		}
-	}()
+	defer conn.Close()
 
-	_, err = conn.Write(message)
+	_, err := conn.Write(message)
 	if err != nil {
 		fmt.Println("sendBlindCounterGossipMessage()--> errore durante invio messaggio:", err)
 		return
 	}
-}
-
-// funzione di ausilio che mi trasforma il contenuto di un messaggio di gossip da stringa a array di interi
-func extractIdArrayFromMessage(digest string) []int {
-	var array []int
-
-	if digest == "" {
-		return array
-	}
-
-	count := strings.Count(digest, "/") + 1
-	arrayElems := strings.SplitN(digest, "/", count)
-
-	for i := 0; i < count; i++ {
-		currId, _ := strconv.Atoi(arrayElems[i])
-		array = append(array, currId)
-	}
-
-	return array
 }

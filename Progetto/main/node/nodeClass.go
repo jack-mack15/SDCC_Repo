@@ -19,13 +19,14 @@ type node struct {
 	Addr string
 	//State indica lo stato in cui si trova il nodo: 0 non conosciuto, 1 attivo, 2 disattivato
 	State int
-	//distanza del nodo, -1 indica che non è conosciuto
-	Distance int
 	//tempo risposta del nodo all'ultimo messaggio, -1 indica che non è conosciuto
 	ResponseTime int
 	//numero di retry restanti prima di segnare il nodo fault
 	Retry int
 }
+
+var ignoreIds []int
+var ignoreMutex sync.Mutex
 
 var nodesList []node
 
@@ -88,7 +89,6 @@ func addActiveNode(id int, state int, address string) {
 		currNode.ID = id
 		currNode.Addr = address
 		currNode.State = state
-		currNode.Distance = -1
 		currNode.ResponseTime = -1
 		currNode.Retry = getMaxRetry()
 
@@ -174,6 +174,23 @@ func getNodesMulticast() map[int]string {
 	return idMap
 }
 
+// funzione che restituisce il tempo di risposta osservato di un nodo
+func getNodeRtt(id int) int {
+	activeNodesMutex.Lock()
+	lenght := getLenght()
+
+	for i := 0; i < lenght; i++ {
+		if nodesList[i].ID == id {
+			var rtt = nodesList[i].ResponseTime
+			activeNodesMutex.Unlock()
+			return rtt
+		}
+	}
+
+	activeNodesMutex.Unlock()
+	return getDefRTT()
+}
+
 // funzione che restituisce la lista di tutti gli id dei nodi conosciuti
 func getNodesId() []int {
 	var array []int
@@ -191,25 +208,15 @@ func getNodesId() []int {
 }
 
 // funzione che aggiorna un nodo della lista, aggiorna stato, distanza e tempo di risposta
-func updateNodeDistance(id int, state int, responseTime int, distance int) {
+func updateNodeDistance(id int, state int, responseTime int) {
 	activeNodesMutex.Lock()
 
 	for i := 0; i < len(nodesList); i++ {
 		if nodesList[i].ID == id {
 			nodesList[i].State = state
 			nodesList[i].Retry = getMaxRetry()
-			p := 0.2
+			nodesList[i].ResponseTime = responseTime
 
-			if nodesList[i].Distance <= 0 {
-				nodesList[i].Distance = distance
-			} else {
-				nodesList[i].Distance = int(p*float64(nodesList[i].Distance) + (1-p)*float64(distance))
-			}
-			if getUsingMax() {
-				nodesList[i].ResponseTime = max(responseTime, nodesList[i].ResponseTime)
-			} else {
-				nodesList[i].ResponseTime = responseTime
-			}
 			break
 		}
 	}
@@ -292,7 +299,7 @@ func reviveFaultNode(faultId int) {
 
 			faultNodesList = append(faultNodesList[:i], faultNodesList[i+1:]...)
 
-			updateNodeDistance(faultId, 1, -1, -1)
+			updateNodeDistance(faultId, 1, -1)
 		}
 	}
 
@@ -336,6 +343,51 @@ func tryLazzarus() {
 	faultNodesMutex.Unlock()
 }
 
+// funzione per escludere delle comunicazioni tra nodi
+func setIgnoreIds() {
+	nodes := getIgnoreNodes()
+
+	isMyRule := false
+
+	for i := 0; i < len(nodes); i++ {
+		if nodes[i] == getMyId() {
+			isMyRule = true
+			break
+		}
+	}
+
+	if isMyRule {
+		for i := 0; i < len(nodes); i++ {
+			if nodes[i] == getMyId() {
+				continue
+			}
+			ignoreIds = append(ignoreIds, nodes[i])
+		}
+	} else {
+		return
+	}
+}
+
+// funzione che aggiunge un nodo agli ignoreIds
+func addToIgnoreIds(id int) {
+	//verifico se sia presente
+	ignoreMutex.Lock()
+	if !checkIgnoreId(id) {
+		ignoreIds = append(ignoreIds, id)
+	}
+	ignoreMutex.Unlock()
+}
+
+// verifica se un nodo è da ignorare o no. ritorna true se è da ignorare
+func checkIgnoreId(id int) bool {
+	for i := 0; i < len(ignoreIds); i++ {
+		if ignoreIds[i] == id {
+			return true
+		}
+	}
+	return false
+}
+
 // funzione di ausilio che stampa tutti i nodi attivi e fault che il nodo conosce attualmente
 // ritorna anche la distanza
 func printAllNodeList() {
@@ -343,7 +395,7 @@ func printAllNodeList() {
 
 	fmt.Printf("\n[PEER %d] active nodes\n", getMyId())
 	for i := 0; i < len(nodesList); i++ {
-		fmt.Printf("nodo id: %d  stato: %d  rtt: %d distanza: %d \n", nodesList[i].ID, nodesList[i].State, nodesList[i].ResponseTime, nodesList[i].Distance)
+		fmt.Printf("nodo id: %d  stato: %d  rtt: %d\n", nodesList[i].ID, nodesList[i].State, nodesList[i].ResponseTime)
 	}
 
 	if len(nodesList) == 0 {
@@ -353,7 +405,7 @@ func printAllNodeList() {
 	fmt.Printf("[PEER %d] fault nodes\n", getMyId())
 
 	for i := 0; i < len(faultNodesList); i++ {
-		fmt.Printf("nodo id: %d  stato: %d  distanza: %d\n", faultNodesList[i].ID, faultNodesList[i].State, faultNodesList[i].Distance)
+		fmt.Printf("nodo id: %d  stato: %d\n", faultNodesList[i].ID, faultNodesList[i].State)
 	}
 
 	if len(faultNodesList) == 0 {

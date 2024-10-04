@@ -1,14 +1,14 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"net"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
+
+// nodi da ignorare
+var ignoreNode []int
 
 // valore di default per l'errore delle coordinate
 var defError float64
@@ -25,14 +25,11 @@ var myId int
 // numero di porta su cui sono in ascolto
 var myPort int
 
-// indirizzo sotto forma di TCPAddr
-var ownTCPAddress *net.TCPAddr
-
 // RTT default per nodi che non ho mai contattato
 var defRTT int
 
-// massimo valore che può assumere una componente delle coordinate
-var maxCoord float64
+// specifica le info di quanti nodi allegare ad un vivaldi response
+var vivaldiPlus int
 
 // valore che indica quanti rtt aspettare che un nodo risponda
 var rttMult float64
@@ -58,14 +55,11 @@ var gossipInterval int
 // numero massimo di retry prima di segnare un nodo fault
 var maxRetry int
 
-// bool che stabilisce se usare la funzione max nell'aggiornamento del tempo di risposta
-var usingMax bool
-
 // massimo numero di vicini a cui il nodo corrente inoltra un update
-var b int
+var maxNeigh int
 
 // massimo numero di volte che un update verrà inoltrato
-var f int
+var gossipF int
 
 // numero di tentativi massimi per la funzione tryLazzarus()
 var lazzarusTry int
@@ -73,189 +67,141 @@ var lazzarusTry int
 // intervallo di tempo in secondi tra due lazzarusTry
 var lazzarusTime int
 
-func readConfigFile() int {
+// frequenza di stampa dei risultati
+var printCounter int
 
-	//recupero il path del file delle configurazioni
-	exePath, err := os.Executable()
+func readEnvVariable() int {
+
+	//recupero le variabili d'ambiente
+	var err error
+	//lettura DEFAULT_ERROR
+	defError, err = strconv.ParseFloat(os.Getenv("DEFAULT_ERROR"), 64)
 	if err != nil {
-		fmt.Println("readConfigFile()--> errore apertura file:", err)
-	}
-
-	exeDir := filepath.Dir(exePath)
-
-	filePath := filepath.Join(exeDir, "node_config.txt")
-
-	file, err := os.Open(filePath)
-
-	if err != nil {
-		fmt.Println("readConfigFile()--> errore nell'apertura del file:", err)
+		fmt.Println("Error reading DEFAULT_ERROR:", err)
 		return 0
 	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-		}
-	}(file)
-
-	data := make(map[string]string)
-
-	//leggo riga per riga, ometto i commenti e aggiungo elementi alla map
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if strings.HasPrefix(line, "#") || strings.TrimSpace(line) == "" {
-			continue
-		}
-
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			fmt.Println("readConfigFile()--> formato della linea non valido:", line)
-			continue
-		}
-
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-
-		data[key] = value
-	}
-
-	if err := scanner.Err(); err != nil {
-		fmt.Println("readConfigFile()--> 3rrore durante la lettura del file:", err)
+	//lettura SCALE_FACTOR
+	scaleFact, err = strconv.ParseFloat(os.Getenv("SCALE_FACTOR"), 64)
+	if err != nil {
+		fmt.Println("Error reading SCALE_FACTOR:", err)
 		return 0
 	}
-
-	//lettura defError
-	defError, err = strconv.ParseFloat(data["def_error"], 64)
+	//lettura PRECISION_WEIGHT
+	precWeight, err = strconv.ParseFloat(os.Getenv("PRECISION_WEIGHT"), 64)
 	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione:", err)
+		fmt.Println("Error reading PRECISION_WEIGHT:", err)
 		return 0
 	}
-	//lettura scale factor
-	scaleFact, err = strconv.ParseFloat(data["scale_factor"], 64)
+	//lettura DEFAULT_RTT
+	defRTT, err = strconv.Atoi(os.Getenv("DEFAULT_RTT"))
 	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione:", err)
+		fmt.Println("Error reading DEFAULT_RTT:", err)
 		return 0
 	}
-	//lettura precision weight
-	precWeight, err = strconv.ParseFloat(data["prec_weight"], 64)
+	//lettura RTT_MULTIPLIER
+	rttMult, err = strconv.ParseFloat(os.Getenv("RTT_MULTIPLIER"), 64)
 	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione:", err)
-	}
-	//lettura my port
-	myPort, err = strconv.Atoi(data["my_port"])
-	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione my_port:", err)
+		fmt.Println("Error reading RTT_MULTIPLIER:", err)
 		return 0
 	}
-	//lettura defRTT
-	defRTT, err = strconv.Atoi(data["def_RTT"])
+	//lettura MESSAGE_INTERVAL
+	hbDelay, err = strconv.Atoi(os.Getenv("MESSAGE_INTERVAL"))
 	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione defRTT:", err)
+		fmt.Println("Error reading MESSAGE_INTERVAL:", err)
 		return 0
 	}
-	//lettura rttMult
-	rttMult, err = strconv.ParseFloat(data["rtt_mult"], 64)
+	//lettura VIVALDI_PLUS_INFO
+	vivaldiPlus, err = strconv.Atoi(os.Getenv("VIVALDI_PLUS_INFO"))
 	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione rttMult:", err)
+		fmt.Println("Error reading VIVALDI_PLUS_INFO:", err)
 		return 0
 	}
-	//lettura maxCoord
-	maxCoord, err = strconv.ParseFloat(data["max_coord_value"], 64)
+	//lettura IGNORE_IDS
+	tempStr := os.Getenv("IGNORE_IDS")
+	ignoreNode = extractIdArrayFromMessage(tempStr)
+	//lettura NODE_EACH_MESSAGE
+	maxNum, err = strconv.Atoi(os.Getenv("NODE_EACH_MESSAGE"))
 	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione max_coord_value:", err)
+		fmt.Println("Error reading NODE_EACH_MESSAGE:", err)
 		return 0
 	}
-	//lettura hb_delay
-	hbDelay, err = strconv.Atoi(data["hb_delay"])
+	//lettura GOSSIP_TYPE
+	gossipType, err = strconv.Atoi(os.Getenv("GOSSIP_TYPE"))
 	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione hb_delay:", err)
+		fmt.Println("Error reading GOSSIP_TYPE:", err)
 		return 0
 	}
-	//lettura info service registry
-	//sdIP = data["sd_ip"]
-	sdPort = 8080
+	//lettura GOSSIP_INTERVAL
+	gossipInterval, err = strconv.Atoi(os.Getenv("GOSSIP_INTERVAL"))
+	if err != nil {
+		fmt.Println("Error reading GOSSIP_INTERVAL:", err)
+		return 0
+	}
+	//lettura GOSSIP_MAX_NEIGHBOR
+	maxNeigh, err = strconv.Atoi(os.Getenv("GOSSIP_MAX_NEIGHBOR"))
+	if err != nil {
+		fmt.Println("Error reading GOSSIP_MAX_NEIGHBOR:", err)
+		return 0
+	}
+	//lettura GOSSIP_MAX_ITERATION
+	gossipF, err = strconv.Atoi(os.Getenv("GOSSIP_MAX_ITERATION"))
+	if err != nil {
+		fmt.Println("Error reading GOSSIP_MAX_ITERATION:", err)
+		return 0
+	}
+	//lettura FAULT_MAX_RETRY
+	maxRetry, err = strconv.Atoi(os.Getenv("FAULT_MAX_RETRY"))
+	if err != nil {
+		fmt.Println("Error reading FAULT_MAX_RETRY:", err)
+		return 0
+	}
+	//lettura LAZZARUS_TRY
+	lazzarusTry, err = strconv.Atoi(os.Getenv("LAZZARUS_TRY"))
+	if err != nil {
+		fmt.Println("Error reading LAZZARUS_TRY:", err)
+		return 0
+	}
+	//lettura LAZZARUS_INTERVAL
+	lazzarusTime, err = strconv.Atoi(os.Getenv("LAZZARUS_INTERVAL"))
+	if err != nil {
+		fmt.Println("Error reading LAZZARUS_INTERVAL:", err)
+		return 0
+	}
+	//lettura NODE_PORT
+	myPort, err = strconv.Atoi(os.Getenv("NODE_PORT"))
+	if err != nil {
+		fmt.Println("Error reading NODE_PORT:", err)
+		return 0
+	}
+	//lettura SERVICE_REGISTRY_RETRY
+	sdRetry, err = strconv.Atoi(os.Getenv("SERVICE_REGISTRY_RETRY"))
+	if err != nil {
+		fmt.Println("Error reading SERVICE_REGISTRY_RETRY:", err)
+		return 0
+	}
+	//lettura SERVICE_REGISTRY_PORT
+	sdPort, err = strconv.Atoi(os.Getenv("SERVICE_REGISTRY_PORT"))
+	if err != nil {
+		fmt.Println("Error reading SERVICE_REGISTRY_PORT:", err)
+		return 0
+	}
+	//lettura SERVER_ADDRESS
 	tempIP := os.Getenv("SERVER_ADDRESS")
 	temps := strings.Split(tempIP, ":")
-
 	if len(temps) != 2 {
 		fmt.Println("Formato della stringa non valido")
 		return 0
 	}
 	// Assegna le sottostringhe a variabili
 	sdIP = temps[0]
-
 	if sdIP == "" {
 		fmt.Println("SERVER_ADDRESS not set")
 		return 0
 	}
-
-	sdPort, err = strconv.Atoi(data["sd_port"])
+	//lettura ITERATION_PRINT
+	printCounter, err = strconv.Atoi(os.Getenv("ITERATION_PRINT"))
 	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione porta service:", err)
-		return 0
-	}
-
-	sdRetry, err = strconv.Atoi(data["sd_retry"])
-	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione sd_retry:", err)
-		return 0
-	}
-	//lettura max num
-	maxNum, err = strconv.Atoi(data["num"])
-	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione max num:", err)
-		return 0
-	}
-	//lettura gossiptype
-	gossipType, err = strconv.Atoi(data["gossip_type"])
-	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione gossipType:", err)
-		return 0
-	}
-	//lettura gossip_interval
-	gossipInterval, err = strconv.Atoi(data["gossip_interval"])
-	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione gossip_interval:", err)
-		return 0
-	}
-	//lettura b
-	b, err = strconv.Atoi(data["max_neighbour"])
-	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione max neighbour:", err)
-		return 0
-	}
-	//lettura f
-	f, err = strconv.Atoi(data["max_iter"])
-	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione di max iter:", err)
-		return 0
-	}
-	//lettura max_retry
-	maxRetry, err = strconv.Atoi(data["max_retry"])
-	if err != nil {
-		fmt.Println("readConfigFile()--> errore nella conversione max_retry:", err)
-		return 0
-	}
-	//lettura using max
-	maxFun := data["using_max"]
-	if maxFun == "" {
-		fmt.Println("readConfigFile()--> errore using_max not set")
-	} else if maxFun == "1" {
-		usingMax = true
-	} else {
-		usingMax = false
-	}
-	//lettura lazzarus_retry
-	lazzarusTry, err = strconv.Atoi(data["lazzarus_try"])
-	if err != nil {
-		fmt.Println("readConfigFile()--> errore converione lazzarus_try")
-		return 0
-	}
-	//lettura lazzarus_time
-	lazzarusTime, err = strconv.Atoi(data["lazzarus_time"])
-	if err != nil {
-		fmt.Println("readConfigFile()--> errore converione lazzarus_time")
+		fmt.Println("Error reading ITERATION_PRINT:", err)
 		return 0
 	}
 
@@ -268,6 +214,7 @@ func readConfigFile() int {
 	}
 }
 
+// funzione che verifica se tutti i parametri sono settati correttamente. ritorna true se non ci sono problemi.
 func checkParameters() bool {
 
 	//check gossiptype
@@ -275,42 +222,31 @@ func checkParameters() bool {
 		fmt.Println("config file error: gossipType must be equal to 1 or 2")
 		return false
 	}
-
 	//check gossip_interval
 	if gossipInterval < 0 {
 		fmt.Println("config file error: gossip_interval must be a positive number")
 		return false
 	}
-
-	//check b
-	if b < 0 {
+	//check maxNeigh
+	if maxNeigh < 0 {
 		fmt.Println("config file error: max neighbour must be a positive int")
 		return false
 	}
-
-	//check b
-	if f < 0 {
+	//check maxNeigh
+	if gossipF < 0 {
 		fmt.Println("config file error: max iteration must be a positive int")
 		return false
 	}
-
 	//check def_rtt
 	if defRTT < 0 || defRTT > 1000 {
 		fmt.Println("config file error: parameter Def_RTT must be between 0 and 1000")
 		return false
 	}
-
 	//check rttMult
 	if rttMult <= 0.0 {
 		fmt.Println("config file error: parameter rttMult must be a positive float")
 		return false
 	}
-	//check maxCoord
-	if maxCoord <= 0.0 {
-		fmt.Println("config file error: parameter MaxCoord must be positive and not zero")
-		return false
-	}
-
 	//check hb_delay
 	if hbDelay <= 0 {
 		fmt.Println("config file error: parameter hb_delay must be a positive integer")
@@ -320,13 +256,11 @@ func checkParameters() bool {
 		fmt.Println("config file error: MaxNum must be greater or equal to -1")
 		return false
 	}
-
 	//check port number
 	if sdPort != 8080 || myPort != 8081 {
 		fmt.Println("config file error: please use port 8080 for registry and 8081 for node")
 		return false
 	}
-
 	//check sd_retry
 	if sdRetry < 0 {
 		fmt.Println("config file error: sd_retry must be an positive integer")
@@ -337,13 +271,11 @@ func checkParameters() bool {
 		fmt.Println("config file error: MaxRetry must be an integer bigger than 0")
 		return false
 	}
-
 	//check lazzarus_try
 	if lazzarusTry < 0 {
 		fmt.Println("config file error: lazzarus_try must be a positive integer")
 		return false
 	}
-
 	//check lazzarus_time
 	if lazzarusTime <= 0 {
 		fmt.Println("config file error: lazzarus_time must be a positive integer")
@@ -353,6 +285,11 @@ func checkParameters() bool {
 	return true
 }
 
+func getPrintCounter() int { return printCounter }
+func getVivaldiPlus() int  { return vivaldiPlus }
+func getIgnoreNodes() []int {
+	return ignoreNode
+}
 func getScaleFact() float64 {
 	return scaleFact
 }
@@ -362,16 +299,10 @@ func getPrecWeight() float64 {
 func getMyPort() int {
 	return myPort
 }
-func setOwnTCPAddr(TCPAddr *net.TCPAddr) {
-	ownTCPAddress = TCPAddr
-}
 func getGossipType() int {
 	return gossipType
 }
 func getDefError() float64 { return defError }
-func getOwnTCPAddr() *net.TCPAddr {
-	return ownTCPAddress
-}
 func getMaxNum() int {
 	return maxNum
 }
@@ -394,24 +325,20 @@ func getDefRTT() int {
 func getRttMult() float64 {
 	return rttMult
 }
-func getMaxCoord() float64 { return maxCoord }
 func getHBDelay() int {
 	return hbDelay
 }
 func getMaxNeighbour() int {
-	return b
+	return maxNeigh
 }
 func getMaxIter() int {
-	return f
+	return gossipF
 }
 func getGossipInterval() int {
 	return gossipInterval
 }
 func getMaxRetry() int {
 	return maxRetry
-}
-func getUsingMax() bool {
-	return usingMax
 }
 func getLazzarusTry() int {
 	return lazzarusTry
