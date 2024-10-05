@@ -10,10 +10,15 @@ Per il primo setUp: avviare l’intero script. Per i successivi setUp: commentar
 
 ### Esecuzione locale
 Per l’esecuzione del progetto: posizionarsi nella directory SDCC_repo/Progetto/main del progetto e installare Docker-Compose nella propria macchina.
+
 Il progetto può essere eseguito in locale lanciando uno degli script: `simpleNetem.sh`, `variableNetem.sh`, `packetLossTest.sh`. 
+
 Eseguendo uno di questi script, verranno creati i container, verranno eseguiti i comandi del tool Netem per il caso di test. Dopo tot secondi i container verranno fermati (`sudo docker-compose stop`) e viene restituito il controllo del terminale. Per osservare i risultati dell’esecuzione, eseguire il comando `sudo docker logs <name>`, sostituendo <name> con il nome dei container (node1, node2, node3, node4 e node5).
+
 Prima di eseguire un successivo lancio, accertarsi di aver eliminato i container con il comando `sudo docker-compose down`.
+
 Si possono modificare i parametri del software tramite il file `.env`, dove sono riportate tutte le variabili ambientali impostate nei container. Per informazioni su tali parametri vedere la sezione VARIABILI AMBIENTE.
+
 È possibile anche modificare gli script per alterare i ritardi, i valori di packet loss o variazioni nei ritardi.
 
 
