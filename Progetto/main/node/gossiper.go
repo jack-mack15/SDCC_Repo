@@ -19,7 +19,7 @@ type FaultGossiper interface {
 // BimodalGossiper struttura del bimodal multicast
 type BimodalGossiper struct{}
 
-// Gossip implementazione del bimodal multicast
+// GossipFault implementazione del bimodal multicast
 // invio l'update a tutti i nodi che conosco
 func (i BimodalGossiper) GossipFault(id int) {
 
@@ -47,7 +47,7 @@ func (i BimodalGossiper) GossipFault(id int) {
 	}
 }
 
-// HandleGossipMessage funzione che viene eseguita quando ricevo un update da un nodo o
+// HandleGossipFaultMessage funzione che viene eseguita quando ricevo un update da un nodo o
 // quando ottengo il digest di un heartbeat
 func (i BimodalGossiper) HandleGossipFaultMessage(idSender int, message GossipMessage) {
 
@@ -101,7 +101,7 @@ func (i BimodalGossiper) ReviveNode(id int) {
 // BlindRumorGossiper struttura del blind rumor mongering
 type BlindRumorGossiper struct{}
 
-// HandleGossipMessage funzione che gestisce un update ricevuto da un altro nodo
+// HandleGossipFaultMessage funzione che gestisce un update ricevuto da un altro nodo
 func (e BlindRumorGossiper) HandleGossipFaultMessage(idSender int, message GossipMessage) {
 
 	fmt.Printf("[PEER %d] BCRM, received gossip message from: %d fault node: %d\n", getMyId(), idSender, message.IdFault)
@@ -135,7 +135,7 @@ func (e BlindRumorGossiper) HandleGossipFaultMessage(idSender int, message Gossi
 	}
 }
 
-// Gossip funzione che va a diffondere un update
+// GossipFault funzione che va a diffondere un update
 func (e BlindRumorGossiper) GossipFault(faultId int) {
 
 	//vado a decrementare il numero di retry

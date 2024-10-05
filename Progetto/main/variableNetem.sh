@@ -13,3 +13,4 @@ sudo docker exec node5 tc qdisc add dev eth0 root netem delay 20ms 3ms
 sleep 60
 
 sudo docker-compose stop
+echo "containers stopped"

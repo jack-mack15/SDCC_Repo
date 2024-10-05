@@ -1,7 +1,8 @@
 #!/bin/bash
 
-echo "installo netem"
-sudo yum install iproute-tc
+#echo "installo netem"
+#sudo yum install iproute-tc  #per aws linux
+sudo apt-get install iproute2   #per Ubuntu system
 echo "carico netem nel kernel"
 sudo modprobe sch_netem
 
@@ -15,7 +16,7 @@ cd registry
 sudo docker build -f Dockerfile.registry -t registry .
 cd ..
 
-echo "cambio diritti dei file .sh"
+echo "cambio permessi dei file .sh"
 sudo chmod +x simpleNetem.sh
 sudo chmod +x variableNetem.sh
 sudo chmod +x packetLossTest.sh

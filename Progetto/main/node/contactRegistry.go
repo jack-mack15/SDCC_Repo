@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strconv"
@@ -42,7 +43,12 @@ func contact(addr string) string {
 		fmt.Println("errore connessione:", err.Error())
 		os.Exit(1)
 	}
-	defer conn.Close()
+	defer func(conn net.Conn) {
+		err := conn.Close()
+		if err != nil {
+			log.Println("contact()--> errore chiusura connessione")
+		}
+	}(conn)
 
 	message := ""
 	if getMyId() == -1 {

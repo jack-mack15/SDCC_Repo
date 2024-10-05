@@ -6,7 +6,7 @@ package main
 //3 per gossip message
 //4 per vivaldi message più digest
 
-// messaggio per vivaldi algorithm
+// VivaldiMessage messaggio per vivaldi algorithm
 type VivaldiMessage struct {
 	Code        int                 `json:"code"`
 	IdSender    int                 `json:"idsender"`
@@ -16,7 +16,7 @@ type VivaldiMessage struct {
 	Digest      string              `json:"digest"`
 }
 
-// messaggio di gossip per blind counter rumor
+// GossipMessage messaggio di gossip per blind counter rumor
 type GossipMessage struct {
 	Code       int    `json:"code"`
 	IdSender   int    `json:"idsender"`

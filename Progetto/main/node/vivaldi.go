@@ -363,7 +363,7 @@ func getMyCoordinate() coordinates {
 func printAllCoordinates() {
 	mapMutex.Lock()
 
-	fmt.Printf("my coord, coordinate: %.2f, %.2f, %.2f\n", myCoord.X, myCoord.Y, myCoord.Z)
+	fmt.Printf("[PEER %d] my coordinates: %.2f, %.2f, %.2f\n", getMyId(), myCoord.X, myCoord.Y, myCoord.Z)
 	if len(nodeInfoMap) > 0 {
 		fmt.Printf("[PEER %d] NODES COORDINATES\n", getMyId())
 		for key, value := range nodeInfoMap {

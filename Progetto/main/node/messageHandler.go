@@ -170,7 +170,7 @@ func sendVivaldiMessage(singleNode *node, wg *sync.WaitGroup) {
 		return
 	}
 
-	fmt.Printf("[PEER %d] sending vivaldi message to: %d\n", getMyId(), singleNode.ID)
+	//fmt.Printf("[PEER %d] sending vivaldi message to: %d\n", getMyId(), singleNode.ID)
 
 	//genero un timeout per la dialtimeout
 	timeout := time.Duration(float64(precResponseTime)*getRttMult()) * time.Millisecond
@@ -183,14 +183,19 @@ func sendVivaldiMessage(singleNode *node, wg *sync.WaitGroup) {
 	if timeOutErr != nil {
 		// Verifica se l'errore è un errore di rete
 		if netErr, ok := timeOutErr.(net.Error); ok && netErr.Timeout() {
-			fmt.Printf("sendVivaldiMessage()--> timeout scaduto per %d\n", singleNode.ID)
+			fmt.Printf("[PEER %d] sendVivaldiMessage()--> timeout scaduto per %d\n", getMyId(), singleNode.ID)
 			go gossiper.GossipFault(singleNode.ID)
 		} else {
 			fmt.Printf("sendVivaldiMessage()--> errore durante la connessione: %v\n", timeOutErr)
 		}
 		return
 	}
-	defer conn.Close()
+	defer func(conn net.Conn) {
+		err := conn.Close()
+		if err != nil {
+			log.Println("sendVivaldiMessage()--> errore chiusura connessione")
+		}
+	}(conn)
 
 	//prendo il rempo di risposta
 	actualRTT := time.Since(startTime).Milliseconds()
@@ -214,7 +219,7 @@ func sendVivaldiMessage(singleNode *node, wg *sync.WaitGroup) {
 
 	n, readErr := conn.Read(buffer)
 	if netErr, ok := readErr.(net.Error); ok && netErr.Timeout() {
-		fmt.Println("sendVivaldiMessage()--> Read() timeout scaduto")
+		fmt.Printf("[PEER %d] sendVivaldiMessage()--> Read() timeout scaduto\n", getMyId())
 		go gossiper.GossipFault(singleNode.ID)
 		return
 	} else if readErr != nil {
@@ -235,7 +240,7 @@ func sendVivaldiMessage(singleNode *node, wg *sync.WaitGroup) {
 
 	//aggiungo le coordinate di altri nodi alla mia map
 	for id, value := range infoMessage.MapCoor {
-		fmt.Printf("[PEER %d] info aggiuntive su %d\n", getMyId(), id)
+		//fmt.Printf("[PEER %d] info aggiuntive su %d\n", getMyId(), id)
 		addCoordinateToMap(id, value, value.LastRTT)
 		if checkIgnoreId(id) {
 			unreachableHandler(infoMessage.IdSender, id, value)
@@ -270,7 +275,12 @@ func sendMulticastMessage(id int, message []byte, remoteAddr string) {
 		}
 		return
 	}
-	defer conn.Close()
+	defer func(conn net.Conn) {
+		err := conn.Close()
+		if err != nil {
+			log.Println("sendMulticastMessage()--> errore chiusura connessione")
+		}
+	}(conn)
 
 	_, err := conn.Write(message)
 	if err != nil {
@@ -297,11 +307,16 @@ func sendBlindCounterGossipMessage(message []byte, toNotifyId int) {
 			fmt.Printf("sendMulticastMessage()--> timeout scaduto per %s\n", remoteAddr)
 			go gossiper.GossipFault(toNotifyId)
 		} else {
-			fmt.Printf("sendMulticastMessage()--> errore durante la connessione: %v\n", timeOutErr)
+			fmt.Printf("sendBlindCounterGossipMessage()--> errore durante la connessione: %v\n", timeOutErr)
 		}
 		return
 	}
-	defer conn.Close()
+	defer func(conn net.Conn) {
+		err := conn.Close()
+		if err != nil {
+			log.Println("sendBlindCounterGossipMessage()--> errore chiusura connessione")
+		}
+	}(conn)
 
 	_, err := conn.Write(message)
 	if err != nil {
