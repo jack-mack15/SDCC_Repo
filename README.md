@@ -21,6 +21,11 @@ Si possono modificare i parametri del software tramite il file `.env`, dove sono
 ### Esecuzione su istanza EC2
 todo
 
+### Script per il lancio
+-	`simpleNetem.sh`: dopo aver lanciato i container, vengono assegnati dei ritardi fissi ad ogni container;
+-	`variableNetem.sh`: dopo aver lanciato i container, vengono assegnati dei ritardi fissi con piccole variazioni ad ogni container;
+-	`packetLossTest.sh`: dopo aver lanciato i container, vengono assegnati dei ritardi fissi ad ogni container ed infine viene impostato un valore di packet loss ad uno dei container.
+
 ### Variabili ambiente
 Di seguito sono elencate tutte le variabili ambiente che vengono impostate in ogni container di tipo “node”, necessarie per configurare il comportamento del programma.
 -	`DEFAULT_ERROR`: Indica il default error utilizzato dall’algoritmo di Vivaldi. L’errore poi ad ogni iterazione verrà modificato ma inizialmente viene impostato ad 1.0. Questo parametro è un float64 positivo.
