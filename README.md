@@ -11,7 +11,7 @@ Per il primo setUp: avviare l’intero script. Per i successivi setUp: commentar
 ### Esecuzione locale
 Per l’esecuzione del progetto: posizionarsi nella directory SDCC_repo/Progetto/main del progetto e installare Docker-Compose nella propria macchina.
 
-Il progetto può essere eseguito in locale lanciando uno degli script: `simpleNetem.sh`, `variableNetem.sh`, `packetLossTest.sh`. 
+Il progetto può essere eseguito in locale lanciando uno degli script: `simpleNetem.sh`, `variableNetem.sh`, `packetLossTest.sh` o `crashNode.sh`. 
 
 Eseguendo uno di questi script, verranno creati i container, verranno eseguiti i comandi del tool Netem per il caso di test. Dopo tot secondi i container verranno fermati (`sudo docker-compose stop`) e viene restituito il controllo del terminale. Per osservare i risultati dell’esecuzione, eseguire il comando `sudo docker logs <name>`, sostituendo <name> con il nome dei container (node1, node2, node3, node4 e node5).
 
@@ -28,6 +28,7 @@ todo
 
 ### Script per il lancio
 -	`simpleNetem.sh`: dopo aver lanciato i container, vengono assegnati dei ritardi fissi ad ogni container;
+-	`crashNode.sh`: dopo aver lanciato i container, viene rimosso un container simulando un crash;
 -	`variableNetem.sh`: dopo aver lanciato i container, vengono assegnati dei ritardi fissi con piccole variazioni ad ogni container;
 -	`packetLossTest.sh`: dopo aver lanciato i container, vengono assegnati dei ritardi fissi ad ogni container ed infine viene impostato un valore di packet loss ad uno dei container.
 
