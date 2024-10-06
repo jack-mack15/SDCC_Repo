@@ -1,7 +1,7 @@
 # Progetto SDCC: Gossip based distance estimation and failure detection
 
-### Set up Sistema
-Il set up del progetto può essere fatto in automatico lanciando lo script `setUpSystem.sh` dopo avergli fornito gli opportuni permessi per l’esecuzione, eseguendo il comando `sudo chmod +x setUpSystem.sh`.
+### Set up Sistema Locale
+Il set up del progetto può essere fatto in automatico lanciando lo script `setUpLocal.sh` dopo avergli fornito gli opportuni permessi per l’esecuzione, eseguendo il comando `sudo chmod +x setUpSystem.sh`.
 Lo script di setUp eseguirà i seguenti step:
 -	Installazione del tool Netem e caricamento dei pacchetti nel kernel (selezionare il comando di installazione nello script);
 -	Build delle image per i container “node” e il container “registry”;
@@ -23,16 +23,20 @@ Si possono modificare i parametri del software tramite il file `.env`, dove sono
 
 
 
-### Esecuzione su istanza EC2
-todo
+### Set Up su Istanza EC2
+Avviata una istanza EC2, collegarsi via SSH e avviare lo script `setUpEc2.sh`. In modo automatico lo script installerà: Netem e caricamento pacchetti nel kernel, Git e la repository, Docker. Inoltre lo script andrà ad eseguire la build delle image dei nodi e del service registry ed infine cambierà i permessi di esecuzione dei vari test. Prima di lanciare lo script di set up, cambiare i permessi di esecuzione con il comando `sudo chmod +x setUpEc2.sh`.
 
-### Script per il lancio
+### Esecuzione su Istanza EC2
+Se si è effettuato il set up con lo script `setUpEc2.sh`, per l'esecuzione del sistema occorre semplicemente eseguire uno degli script: : `simpleNetem.sh`, `variableNetem.sh`, `packetLossTest.sh` o `crashNode.sh`, con il comando `sudo ./name.sh `. 
+Per output, configurazioni sistema e netem, leggere Esecuzione Locale.
+
+### Script di Esecuzione
 -	`simpleNetem.sh`: dopo aver lanciato i container, vengono assegnati dei ritardi fissi ad ogni container;
 -	`crashNode.sh`: dopo aver lanciato i container, viene rimosso un container simulando un crash;
 -	`variableNetem.sh`: dopo aver lanciato i container, vengono assegnati dei ritardi fissi con piccole variazioni ad ogni container;
 -	`packetLossTest.sh`: dopo aver lanciato i container, vengono assegnati dei ritardi fissi ad ogni container ed infine viene impostato un valore di packet loss ad uno dei container.
 
-### Variabili ambiente
+### Variabili Ambiente
 Di seguito sono elencate tutte le variabili ambiente che vengono impostate in ogni container di tipo “node”, necessarie per configurare il comportamento del programma.
 -	`DEFAULT_ERROR`: Indica il default error utilizzato dall’algoritmo di Vivaldi. L’errore poi ad ogni iterazione verrà modificato ma inizialmente viene impostato ad 1.0. Questo parametro è un float64 positivo.
 -	`SCALE_FACTOR`: Indica lo scale factor, parametro utilizzato nell’algoritmo di Vivaldi nel calcolo del parametro delta. Corrisponde alla variabile Cc del paper originale. Float64 positivo.  
