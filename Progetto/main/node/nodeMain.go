@@ -31,7 +31,7 @@ func main() {
 	go receiverHandler()
 
 	//sleep per dare tempo a netem di assegnare i ritardi o tirare su la rete
-	time.Sleep(8 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	counter := 0
 	//FASE ATTIVA

@@ -22,7 +22,6 @@ services:
       - registry
     environment:
       SERVER_ADDRESS: registry:8080
-    restart: unless-stopped
 
   node2:
     image: node
@@ -39,7 +38,6 @@ services:
       - node1
     environment:
       SERVER_ADDRESS: registry:8080
-    restart: unless-stopped
 
   node3:
     image: node
@@ -57,7 +55,6 @@ services:
       - node2
     environment:
       SERVER_ADDRESS: registry:8080
-    restart: unless-stopped
 
   node4:
     image: node
@@ -76,7 +73,6 @@ services:
       - node3
     environment:
       SERVER_ADDRESS: registry:8080
-    restart: unless-stopped
 
   node5:
     image: node
@@ -96,7 +92,6 @@ services:
       - node4
     environment:
       SERVER_ADDRESS: registry:8080
-    restart: unless-stopped
 
 networks:
   udp_net:
