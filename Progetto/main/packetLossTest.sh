@@ -18,7 +18,7 @@ sleep 8
 echo "changed loss pack"
 sudo docker exec node2 tc qdisc change dev eth0 root netem loss 0%
 
-sleep 6
+sleep 10
 
 sudo docker-compose stop
 echo "cointainers stopped"

@@ -118,7 +118,9 @@ func readEnvVariable() int {
 	}
 	//lettura IGNORE_IDS
 	tempStr := os.Getenv("IGNORE_IDS")
-	ignoreNode = extractIdArrayFromMessage(tempStr)
+	if tempStr != "" {
+		ignoreNode = extractIdArrayFromMessage(tempStr)
+	}
 	//lettura NODE_EACH_MESSAGE
 	maxNum, err = strconv.Atoi(os.Getenv("NODE_EACH_MESSAGE"))
 	if err != nil {
