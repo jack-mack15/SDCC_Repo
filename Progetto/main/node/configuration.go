@@ -218,7 +218,21 @@ func readEnvVariable() int {
 
 // funzione che verifica se tutti i parametri sono settati correttamente. ritorna true se non ci sono problemi.
 func checkParameters() bool {
-
+	//check defError
+	if defError <= 0.0 || defError > 1.0 {
+		fmt.Println("config file error: defError must be a float between 0.0 a 1.0")
+		return false
+	}
+	//check scale factor
+	if scaleFact <= 0.0 || scaleFact > 1.0 {
+		fmt.Println("config file error: scale factor must be a float between 0.0 a 1.0")
+		return false
+	}
+	//check prec weight
+	if precWeight <= 0.0 || precWeight > 1.0 {
+		fmt.Println("config file error: precision weight must be a float between 0.0 a 1.0")
+		return false
+	}
 	//check gossiptype
 	if gossipType != 1 && gossipType != 2 {
 		fmt.Println("config file error: gossipType must be equal to 1 or 2")
@@ -229,29 +243,35 @@ func checkParameters() bool {
 		fmt.Println("config file error: gossip_interval must be a positive number")
 		return false
 	}
-	//check maxNeigh
-	if maxNeigh < 0 {
-		fmt.Println("config file error: max neighbour must be a positive int")
-		return false
-	}
-	//check maxNeigh
-	if gossipF < 0 {
-		fmt.Println("config file error: max iteration must be a positive int")
-		return false
-	}
 	//check def_rtt
 	if defRTT < 0 || defRTT > 1000 {
 		fmt.Println("config file error: parameter Def_RTT must be between 0 and 1000")
 		return false
 	}
 	//check rttMult
-	if rttMult <= 0.0 {
+	if rttMult < 0.0 {
 		fmt.Println("config file error: parameter rttMult must be a positive float")
 		return false
 	}
 	//check hb_delay
 	if hbDelay <= 0 {
 		fmt.Println("config file error: parameter hb_delay must be a positive integer")
+		return false
+	}
+	//check vivaldi plus
+	if vivaldiPlus < 0 {
+		fmt.Println("config file error: parameter vivaldiPlus must be a positive integer")
+		return false
+	}
+	//check maxNeigh
+	if maxNeigh < 0 {
+		fmt.Println("config file error: max neighbour must be a positive int")
+		return false
+	}
+	//check max iter
+	if gossipF < 0 {
+		fmt.Println("config file error: max iteration must be a positive int")
+		return false
 	}
 	//check maxNum
 	if maxNum < 0 {
@@ -282,6 +302,11 @@ func checkParameters() bool {
 	if lazzarusTime <= 0 {
 		fmt.Println("config file error: lazzarus_time must be a positive integer")
 		return false
+	}
+	//check iter print
+	if printCounter < 0 {
+		fmt.Println("config file error: you specified a wrong print counter, using default 10")
+		printCounter = 10
 	}
 
 	return true

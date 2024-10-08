@@ -11,12 +11,12 @@ sudo docker exec node4 tc qdisc add dev eth0 root netem delay 15ms
 
 sleep 12
 
-sudo docker exec node2 tc qdisc add dev eth0 root netem loss 100%
-
+echo "packet loss 100%"
+sudo docker exec node2 tc qdisc change dev eth0 root netem delay 17ms loss 100%
 sleep 8
 
-echo "changed loss pack"
-sudo docker exec node2 tc qdisc change dev eth0 root netem loss 0%
+echo "packet loss 0%"
+sudo docker exec node2 tc qdisc change dev eth0 root netem delay 17ms loss 0%
 
 sleep 10
 
