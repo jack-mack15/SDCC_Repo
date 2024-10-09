@@ -6,6 +6,8 @@ sudo apt-get install iproute2   #per Ubuntu system
 echo "carico netem nel kernel"
 sudo modprobe sch_netem
 
+cd Progetto/main/
+
 echo "build image dei nodi"
 cd node
 sudo docker build -f Dockerfile.node -t node .
