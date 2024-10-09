@@ -1,6 +1,7 @@
 # Progetto SDCC: Gossip based distance estimation and failure detection
 
 ### Set up Sistema Locale
+Tutti gli script sono situati nella directory main del progetto. Per avviare gli script eseguire prima il comando `cd SDCC_repo/Progetto/main`.
 Il set up del progetto può essere fatto in automatico lanciando lo script `setUpLocal.sh` dopo avergli fornito gli opportuni permessi per l’esecuzione, eseguendo il comando `sudo chmod +x setUpSystem.sh`.
 Lo script di setUp eseguirà i seguenti step:
 -	Installazione del tool Netem e caricamento dei pacchetti nel kernel (selezionare il comando di installazione nello script);
