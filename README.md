@@ -1,12 +1,16 @@
 # Progetto SDCC: Gossip based distance estimation and failure detection
 
 ### Set up Sistema Locale
-Tutti gli script sono situati nella directory main del progetto. Per avviare gli script eseguire prima il comando `cd SDCC_repo/Progetto/main`.
+Gli script di set up sono situati nella directory SDCC_repo mentre gli script per eseguire i test sono situati nella directory main. Questo vale anche per set up e esecuzione su istanza EC2.
+
 Il set up del progetto può essere fatto in automatico lanciando lo script `setUpLocal.sh` dopo avergli fornito gli opportuni permessi per l’esecuzione, eseguendo il comando `sudo chmod +x setUpSystem.sh`.
 Lo script di setUp eseguirà i seguenti step:
 -	Installazione del tool Netem e caricamento dei pacchetti nel kernel (selezionare il comando di installazione nello script);
 -	Build delle image per i container “node” e il container “registry”;
 -	Gestione dei permessi di esecuzione degli script per lanciare il progetto.
+
+Lo script di set up inoltre si sposta automaticamente nella directory main dove sono situati gli script di esecuzione.
+
 Per il primo setUp: avviare l’intero script. Per i successivi setUp: commentare i comandi da non eseguire.
 
 ### Esecuzione locale
@@ -27,9 +31,9 @@ Si possono modificare i parametri del software tramite il file `.env`, dove sono
 ### Set Up su Istanza EC2
 Avviata una istanza EC2, collegarsi via SSH e installare il progetto nell'istanza EC2. Un modo per installare il progetto è installare git con il comando `sudo yum install git -y` e successivamente installare il progetto con il comando `git clone https://github.com/jack-mack15/SDCC_repo.git`. 
 
-Successivamente spostarsi nella directory main del progetto eseguendo il comando `cd SDCC_repo/Progetto/main`.
-
 A questo punto, avviare lo script `setUpEc2.sh`. In modo automatico lo script installerà: Netem con il caricamento pacchetti nel kernel e Docker. Inoltre lo script andrà ad eseguire la build delle image dei nodi e del service registry ed infine cambierà i permessi di esecuzione dei vari test. Prima di lanciare lo script di set up, cambiare i permessi di esecuzione con il comando `sudo chmod +x setUpEc2.sh`.
+
+Lo script di set up inoltre si sposta automaticamente nella directory main dove sono situati gli script di esecuzione.
 
 ### Esecuzione su Istanza EC2
 Se si è effettuato il set up con lo script `setUpEc2.sh`, per l'esecuzione del sistema occorre semplicemente eseguire uno degli script: : `simpleNetem.sh`, `variableNetem.sh`, `packetLossTest.sh` o `crashNode.sh`, con il comando `sudo ./name.sh `. 
