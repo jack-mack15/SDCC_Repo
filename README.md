@@ -31,7 +31,7 @@ Si possono modificare i parametri del software tramite il file `.env`, dove sono
 ### Set Up su Istanza EC2
 Avviata una istanza EC2, collegarsi via SSH e installare il progetto nell'istanza EC2. Un modo per installare il progetto è installare git con il comando `sudo yum install git -y` e successivamente installare il progetto con il comando `git clone https://github.com/jack-mack15/SDCC_repo.git`. 
 
-A questo punto, avviare lo script `setUpEc2.sh`. In modo automatico lo script installerà: Netem con il caricamento pacchetti nel kernel e Docker. Inoltre lo script andrà ad eseguire la build delle image dei nodi e del service registry ed infine cambierà i permessi di esecuzione dei vari test. Prima di lanciare lo script di set up, cambiare i permessi di esecuzione con il comando `sudo chmod +x setUpEc2.sh`.
+A questo punto, spostarsi nella directory SDCC_repo con il comando `cd SDCC_repo/` e avviare lo script `setUpEc2.sh`. In modo automatico lo script installerà: Netem con il caricamento pacchetti nel kernel e Docker. Inoltre lo script andrà ad eseguire la build delle image dei nodi e del service registry ed infine cambierà i permessi di esecuzione dei vari test. Prima di lanciare lo script di set up, cambiare i permessi di esecuzione con il comando `sudo chmod +x setUpEc2.sh`.
 
 Lo script di set up inoltre si sposta automaticamente nella directory main dove sono situati gli script di esecuzione.
 
