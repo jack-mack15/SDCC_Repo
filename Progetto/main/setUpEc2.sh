@@ -26,3 +26,4 @@ echo "cambio permessi dei file .sh"
 sudo chmod +x simpleNetem.sh
 sudo chmod +x variableNetem.sh
 sudo chmod +x packetLossTest.sh
+sudo chmod +x crashNode.sh
