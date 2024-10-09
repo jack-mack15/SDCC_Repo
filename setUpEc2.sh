@@ -13,6 +13,9 @@ sudo chmod +x /usr/local/bin/docker-compose
 
 echo "build image dei nodi"
 sudo service docker start
+
+cd Progetto/main/
+
 cd node
 sudo docker build -f Dockerfile.node -t node .
 cd ..
