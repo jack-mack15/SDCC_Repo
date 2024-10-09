@@ -14,7 +14,7 @@ Lo script di set up inoltre si sposta automaticamente nella directory main dove 
 Per il primo setUp: avviare l’intero script. Per i successivi setUp: commentare i comandi da non eseguire.
 
 ### Esecuzione locale
-Per l’esecuzione del progetto: posizionarsi nella directory SDCC_repo/Progetto/main del progetto e installare Docker-Compose nella propria macchina.
+Per l’esecuzione del progetto è necessario aver installato Docker-Compose nella propria macchina.
 
 Il progetto può essere eseguito in locale lanciando uno degli script: `simpleNetem.sh`, `variableNetem.sh`, `packetLossTest.sh` o `crashNode.sh`. 
 
